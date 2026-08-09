@@ -1,0 +1,24 @@
+# Core (Day 1)
+playwright>=1.45
+beautifulsoup4>=4.12
+lxml>=5.0
+pillow>=10.0
+numpy>=1.26
+pandas>=2.0
+scikit-image>=0.22
+scipy>=1.11
+rapidfuzz>=3.5
+tqdm>=4.66
+pyyaml>=6.0
+minify-html>=0.15
+tiktoken>=0.7
+datasets>=2.19
+transformers>=4.44
+
+# Optional -- only needed when use_lpips: true in config/gate_config.yaml
+# torch
+# lpips
+
+# After first successful install, freeze exact versions for the paper:
+#   pip freeze > requirements.lock.txt
+# and record `playwright --version` + the Chromium build in lab_notebook.md.

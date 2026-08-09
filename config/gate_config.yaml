@@ -1,0 +1,15 @@
+# Acceptance Gate v2 thresholds -- PROVISIONAL until 03_run_stress_test.py
+# calibrates them. Freeze this file (git commit) before the main 5k run and
+# never touch it again mid-experiment.
+height_tol_px: 2
+text_ratio_min: 0.995
+iou_mean_min: 0.95
+center_shift_max_px: 5
+deltae_p95_max: 2.0
+deltae_max: 5.0
+require_token_reduction: true
+# Perceptual soft gate (needs: pip install torch lpips). Off by default so
+# Day 1 has no torch dependency; turn on after the stress test if the hard
+# gates alone miss breakages.
+use_lpips: false
+lpips_max: 0.03

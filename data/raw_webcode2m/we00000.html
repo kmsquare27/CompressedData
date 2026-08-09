@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+
+<!DOCTYPE html>
+
+<html class="no-js"> <head><title>zip-stream :: Stackage Server</title></head><body><div id="main"><div class="navbar navbar-inverse navbar-static-top"><div class="navbar-inner"><div class="container"><button class="btn btn-navbar"><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><a class="brand"><img src="/static/img/stackage.png"/></a><div class="nav-collapse collapse"><ul class="nav"><li> <a>About</a></li><li> <a>Snapshots</a></li><li> <a>LTS</a></li><li> <a>Nightly</a></li><li> <a>FAQ</a></li><li> <a>Blog</a></li></ul></div></div></div></div><div class="container"><div class="container content" id="snapshot-home"><div class="row"><div class="span12"><h1>zip-stream</h1><p class="synopsis">ZIP archive streaming using conduits</p><table><tr><td>Version on this page:</td><td><span class="version">0.2.1.0</span></td></tr><tr><td><a>LTS Haskell 21.22</a>:</td><td><span class="version"><a>0.2.2.0</a></span></td></tr><tr><td><a>Stackage Nightly 2023-11-30</a>:</td><td><span class="version"><a>0.2.2.0</a></span></td></tr><tr><td>Latest on Hackage:</td><td><a><span class="version">0.2.2.0</span></a></td></tr></table><p><a>See all snapshots <code>zip-stream</code> appears in</a></p></div></div><div class="row"><div class="span12"><div class="authorship"><span class="license">BSD-3-Clause licensed </span>by <strong class="author">Dylan Simon</strong></div><div class="maintainer">Maintained by <strong class="author"><a>dylan@dylex.net</a></strong></div><div class="pantry-version">This version can be pinned in stack with:<code>zip-stream-0.2.1.0@sha256:9601c2a5addd3edd8ab1f7ac8c3753e92326e1971c6d15d123e621ff8c92e002,1749</code></div><div class="docs"><h4>Module documentation for 0.2.1.0</h4><form class="hoogle"><input class="search"/><input class="btn"/><input/><label class="checkbox exact-lookup"><input id="exact"/>
+Exact lookup</label></form><ul class="docs-list"><li>Codec<ul class="docs-list"><li>Codec.Archive<ul class="docs-list"><li>Codec.Archive.Zip<ul class="docs-list"><li>Codec.Archive.Zip.Conduit<ul class="docs-list"><li><a>Codec.Archive.Zip.Conduit.Types</a></li><li><a>Codec.Archive.Zip.Conduit.UnZip</a></li><li><a>Codec.Archive.Zip.Conduit.Zip</a></li></ul></li></ul></li></ul></li></ul></li></ul></div></div></div></div><div class="container content" id="snapshot-home"><div class="row"><div class="span12"><div class="dependencies" id="dependencies">Depends on 19 packages<em>(<a>full list with versions</a>)</em>:<div class="dep-list"><a>base</a>, <a>binary</a>, <a>binary-conduit</a>, <a>bytestring</a>, <a>conduit</a>, <a>conduit-extra</a>, <a>digest</a>, <a>directory</a>, <a>exceptions</a>, <a>filepath</a>, <a>mtl</a>, <a>primitive</a>, <a>resourcet</a>, <a>text</a>, <a>time</a>, <a>transformers</a>, <a>transformers-base</a>, <a>zip-stream</a>, <a>zlib</a></div></div><div class="reverse-dependencies" id="reverse-dependencies">Used by 1 package in <b>lts-18.8</b><em>(<a>full list with versions</a>)</em>:<div class="dep-list"><a>zip-stream</a></div></div></div></div></div><div class="markdown-container readme-container"><div class="container content"><div class="row"><div class="span12 expanding"><p>Process (extract and create) zip files as streams (e.g., over the network), accessing contained files without having to write the zip file to disk (unlike zip-conduit).</p><div class="bottom-gradient"><i class="fa fa-angle-down"></i></div></div></div></div></div></div><div class="footer"><div class="container"><div class="row"><div class="span12">A service provided by
+<a>FP Complete</a></div></div></div></div></div><style>form.hoogle {
+    margin-bottom: 20px
+    }
+form.hoogle .search {
+    width: 25em
+    }
+form.hoogle input {
+    margin-bottom: 0
+    }
+.exact-lookup {
+    display: inline-block;
+    margin-left: 1em
+    }
+.version {
+    font-weight: bold
+    }
+.dependencies {
+    margin-top: 0.5em;
+    padding-top: 0.5em
+    }
+.docs {
+    margin-top: 0.5em;
+    border-top: 1px solid #ddd;
+    padding-top: 0.5em
+    }
+.docs ul {
+    list-style-type: none
+    }
+.docs ul li {
+    line-height: 1.5em
+    }
+.docs, .docs ul, .docs li {
+    position: relative
+    }
+.docs ul {
+    list-style: none;
+    padding-left: 10px
+    }
+.markdown-container {
+    margin-top: 1em;
+    border-top: 1px solid #ddd;
+    padding-top: 1em;
+    margin-bottom: 0;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 1em;
+    background: #f4f4f4
+    }
+.markdown-container ul, .markdown-container ol, .markdown-container p {
+    margin-top: 0.5em
+    }
+.readme-container {
+    margin-top: 1em
+    }
+.expanding {
+    position: relative
+    }
+.expanding .bottom-gradient {
+    display: none;
+    bottom: 0;
+    position: absolute;
+    width: 100%;
+    cursor: pointer;
+    height: 150px;
+    line-height: 150px;
+    text-align: center;
+    background: -moz-linear-gradient(top, rgba(244, 244, 244, 0) 0%, rgba(244, 244, 244, 1) 100%);
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%, rgba(244, 244, 244, 0)), color-stop(100%, rgba(244, 244, 244, 1)));
+    background: -webkit-linear-gradient(top, rgba(244, 244, 244, 0) 0%, rgba(244, 244, 244, 1) 100%);
+    background: -o-linear-gradient(top, rgba(244, 244, 244, 0) 0%, rgba(244, 244, 244, 1) 100%);
+    background: -ms-linear-gradient(top, rgba(244, 244, 244, 0) 0%, rgba(244, 244, 244, 1) 100%);
+    background: linear-gradient(to bottom, rgba(244, 244, 244, 0) 0%, rgba(244, 244, 244, 1) 100%)
+    }
+.expanding .fa {
+    font-size: 5em;
+    color: #666;
+    line-height: 150px;
+    margin-top: 25px
+    }
+html {
+    position: relative;
+    min-height: 100%
+    }
+body {
+    background: #f0f0f0;
+    font-family: "Lato", sans-serif;
+    font-size: 16px;
+    margin-bottom: 4em;
+    padding-bottom: 2em
+    }
+code, pre {
+    color: #555;
+    font-family: "ubuntu mono", monospace
+    }
+.brand > img {
+    height: 20px
+    }
+.navbar-inverse {
+    margin-bottom: 1em
+    }
+.navbar-inverse .navbar-inner {
+    background: #0981c3
+    }
+.navbar-inverse .navbar-inner .btn-navbar {
+    background: #0981c3
+    }
+.navbar-inverse .navbar-inner * {
+    color: #fff !important
+    }
+.navbar-inner {
+    border-color: #06537d !important
+    }
+.footer {
+    background: #0981c3;
+    border-top: 1px solid #ddd;
+    color: #fff;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4em;
+    line-height: 2em;
+    text-align: center
+    }
+.footer a {
+    color: #fff;
+    font-weight: bold
+    }
+.footer .span12 {
+    padding: 0 15px 0 0;
+    line-height: 4em
+    }
+h1, h2, h3, h4, h5 {
+    color: #06537d
+    }
+.content {
+    line-height: 30px
+    }</style></body></html>

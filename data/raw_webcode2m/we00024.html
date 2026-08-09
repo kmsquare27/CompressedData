@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+
+<html><head><title>3385260 - New license was generated but server continues in grace mode - SAP ASE | SAP Knowledge Base Article</title></head><body><div class="container-fluid"><h2 class="anchor-hidden" id="Title"></h2><div class="row"><div class="col-sm-6"><p class="subheader small text-left"><img class="logo" src="/sap(====)/support/notes/service/sap_logo.png"/>SAP Knowledge Base Article - Preview</p></div></div><div class="jumbotron"><h1><span>3385260</span> <span>-</span> New license was generated but server continues in grace mode - SAP ASE</h1></div><div id="content"><h2 class="anchor-hidden" id="Description"></h2><h3 class="section" id="Symptom">Symptom</h3><div style="font-size: 100.01%;"><p><p>A new license was generated but ASE continues in grace mode. In the log:</p><p>======</p><p>00:0000:00000:00000:2023/09/11 18:21:38.96 kernel  SySAM: Using licenses from: //ffffffff/XXX/SYSAM-2_0/licenses/XXX1_SYB.lic<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  SySAM: Checked out graced license for 4 ASE_CORE (2021.12310/permanent/YYYY YYYY YYYY YYYY) will expire Wed 01 Nov 2023 07:38:39 PM +04.<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  SySAM: Failed to obtain license(s) for ASE_CORE feature from license file(s) or server(s).<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  SySAM: No such feature exists. Verify that a license containing the feature name ASE_CORE is available or generate and deploy the license from the SAP Support Portal.<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  SySAM: License feature name:  ASE_CORE<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  SySAM: License search path:   //ffffffff/XXX/SYSAM-2_0/licenses/XXX1_SYB.lic:<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  SySAM: FlexNet Licensing error:-5,414<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  Error: 131274, Severity: 17, State: 1<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  SySAM: WARNING: ASE will shutdown on Wed 01 Nov 2023 07:38:39 PM +04, unless a suitable ASE_CORE license is obtained before that date.<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  This product is licensed to: BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  Checked out license ASE_CORE<br/>00:0000:00000:00000:2023/09/11 18:21:38.97 kernel  Adaptive Server Enterprise (Enterprise Edition)<br/>00:0000:00000:00000:2023/09/11 18:21:38.99 kernel  Using config area from primary master device.<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  SySAM: Checked out graced license for 4 ASE_PARTITIONS (2021.12310/permanent/YYYY YYYY YYYY YYYY) will expire Wed 01 Nov 2023 06:43:11 PM +04.<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  SySAM: Failed to obtain license(s) for ASE_PARTITIONS feature from license file(s) or server(s).<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  SySAM: No such feature exists. Verify that a license containing the feature name ASE_PARTITIONS is available or generate and deploy the license from the SAP Support Portal.<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  SySAM: License feature name:  ASE_PARTITIONS<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  SySAM: License search path:   //ffffffff/XXX/SYSAM-2_0/licenses/XXX1_SYB.lic:<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  SySAM: FlexNet Licensing error:-5,414<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  Error: 131275, Severity: 17, State: 1<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  SySAM: WARNING: ASE functionality that requires the ASE_PARTITIONS license will be disabled on Wed 01 Nov 2023 06:43:11 PM +04, unless a suitable ASE_PARTITIONS license is obtained before that date.<br/>00:0000:00000:00000:2023/09/11 18:21:39.00 kernel  Checked out license ASE_PARTITIONS<br/>.....<br/>......</p><p><br/>======</p></p><br/><a class="btn btn-primary">
+              Read more...
+           </a><br/></div><h3 class="section" id="Environment">Environment</h3><div style="font-size: 100.01%;"><ul><li><span style="font-size: 11.0pt; font-family: Calibri, sans-serif;">SAP Adaptive Server Enterprise/Replication Server 16.0 SP03 PL13, or later</span></li><li><span style="font-size: 11.0pt; font-family: Calibri, sans-serif;">SAP Adaptive Server Enterprise/Replication Server 16.0 SP04 PL04, or later</span></li></ul></div><h3 class="section" id="Keywords">Keywords</h3><div style="font-size: 100.01%;"><p> license server served license grace period Failed to obtain license , KBA , BC-SYB-ASE , Sybase ASE Database Platform (non Business Suite) , Problem </p></div><h3 class="section" id="About">About this page</h3>
+          This is a preview of a SAP Knowledge Base Article. Click <a>more</a> to access the full version on SAP for Me (Login
+required).
+          <h3 class="section" id="Search_Additional">Search for additional results</h3><p>Visit SAP Support Portal's <a>SAP Notes and KBA Search</a>.</p></div></div><div class="footer-distributed" id="footer"><div class="footer-left"><h3>Legal</h3><p class="footer-links"><a class="footer-link">Privacy</a> |
+      <a class="footer-link">Terms of use</a> |
+      <a class="footer-link">Legal Disclosure</a> |
+      <a class="footer-link">Copyright</a> |
+      <a class="footer-link">Trademark</a></p></div><div class="footer-center"><h3>Follow</h3><div class="footer-icons"><a><img class="follow" src="/sap(====)/support/notes/service/facebook.svg"/></a><a><img class="follow" src="/sap(====)/support/notes/service/twitter.svg"/></a><a><img class="follow" src="/sap(====)/support/notes/service/youtube.svg"/></a><a><img class="follow" src="/sap(====)/support/notes/service/linkedin.svg"/></a><a><img class="follow" src="/sap(====)/support/notes/service/instagram2.svg"/></a></div></div></div><style>.text-left {
+    text-align: left !important
+    }
+.subheader {
+    margin-bottom: 0
+    }
+.anchor-hidden {
+    margin-top: 0
+    }
+.logo {
+    margin-right: 20px
+    }
+.section {
+    border-left: 3px solid #563d7c;
+    padding-left: 18px;
+    margin-top: 50px
+    }
+.jumbotron {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    background-color: #eff4f9
+    }
+.jumbotron h1, .jumbotron .h1 {
+    font-size: 32px
+    }
+.footer-distributed {
+    font-size: 12px;
+    background-color: #e9e9e9;
+    box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.12);
+    box-sizing: border-box;
+    width: 100%;
+    text-align: left;
+    padding-bottom: 30px;
+    padding-top: 5px;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin-top: 30px
+    }
+.footer-distributed .footer-left, .footer-distributed .footer-center, .footer-distributed .footer-right {
+    display: inline-block;
+    vertical-align: top
+    }
+.footer-distributed .footer-left {
+    padding-top: 10px;
+    width: 33%
+    }
+.footer-distributed h3 {
+    font-size: 16px;
+    font-weight: bold
+    }
+.footer-distributed .footer-center {
+    padding-top: 10px;
+    width: 33%;
+    text-align: center
+    }
+img.follow {
+    width: 24px;
+    height: 24px;
+    max-width: 24px
+    }
+.footer-distributed .footer-icons a {
+    margin-right: 7px
+    }</style></body></html>
