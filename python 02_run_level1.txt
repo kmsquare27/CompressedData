@@ -1,0 +1,29 @@
+python 02_run_level1.py
+level1+gate:   0%|                                                                                                                                               | 0/100 [00:00<?, ?it/s][transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+[gate] token counter: qwen2.5-vl
+level1+gate: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 100/100 [08:26<00:00,  5.06s/it]
+
+[02] ---- Level 1 under Gate v2 ----
+accepted: 83/100
+reduction  mean 4.63%   median 3.53%   p10 1.69%   p90 9.27%
+SSIM (diagnostic only) mean: 0.99053
+
+rejected pages and which gate tripped:
+page_id  g0_parse  g1_tokens  g2_height  g3_text  g4_blocks  g5_color
+we00008      True       True      False     True       True      True
+we00013      True       True       True     True      False      True
+we00015      True       True      False     True      False      True
+we00017      True       True      False     True       True      True
+we00018      True       True      False     True      False      True
+we00021      True       True      False     True      False      True
+we00025      True       True      False    False      False     False
+we00026      True       True      False     True      False      True
+we00030      True       True      False     True      False      True
+we00035      True       True       True     True      False      True
+we00040      True       True      False     True      False      True
+we00047      True       True      False    False      False     False
+we00067      True       True      False     True      False      True
+we00069      True       True       True     True      False      True
+we00088      True       True       True     True      False      True
+we00089      True       True      False     True      False      True
+we00095      True       True       True     True      False      True
