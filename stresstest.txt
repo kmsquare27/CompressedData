@@ -1,0 +1,242 @@
+Your passage answers two different questions:
+
+1. Why must we stress-test the acceptance gate?
+2. Why calculate SSIM during that test if SSIM is not part of the final gate?
+
+## 1. Why stress-test the gate?
+
+Because merely building a gate does not prove that it works.
+
+Your gate currently contains provisional thresholds such as:
+
+* maximum movement: `2 px`
+* text similarity: `0.995`
+* bounding-box IoU: `0.95`
+* colour difference: `ΔE00 ≤ 2.0`
+
+These values sound reasonable, but they are initially only educated guesses. You need experiments to determine whether they are appropriate.
+
+### The ground-truth problem
+
+During normal compression, suppose L2 removes an element.
+
+If the gate rejects the page, you cannot immediately know whether:
+
+* the compression really damaged the page, or
+* the gate is unnecessarily strict.
+
+If the gate accepts it, you cannot be completely sure whether:
+
+* the page is genuinely equivalent, or
+* the gate failed to notice some damage.
+
+The correct answer—called the **ground truth**—is unknown.
+
+A stress test solves this by creating controlled mutations whose answers are already known.
+
+For example:
+
+```text
+Original: <h1>Welcome to our website</h1>
+
+Mutation: Delete the heading
+Expected decision: REJECT
+```
+
+Because you deliberately deleted visible content, you know the mutation is breaking. If the gate accepts it, the gate is objectively wrong.
+
+Similarly:
+
+```html
+<!-- Original -->
+<button class="primary">Submit</button>
+
+<!-- Safe mutation: comment removed -->
+<button class="primary">Submit</button>
+```
+
+The screenshot should remain identical. If the gate rejects this change, it is too strict or contains a bug.
+
+### Stress testing checks three things
+
+#### A. Whether the thresholds are correct
+
+Suppose you test element movements:
+
+| Shift | Gate decision |
+| ----: | ------------- |
+|  1 px | Accept        |
+|  2 px | Accept        |
+|  4 px | Accept        |
+|  8 px | Reject        |
+| 16 px | Reject        |
+
+You can now justify the selected threshold using evidence.
+
+Instead of writing:
+
+> We chose 5 px because it seemed reasonable.
+
+You can write:
+
+> A 5 px threshold accepted all safe mutations while rejecting every tested shift of 8 px or more on the development set.
+
+#### B. Whether the implementation contains bugs
+
+Even sensible thresholds are useless if the code calculates the measurements incorrectly.
+
+Possible bugs include:
+
+* matching the wrong two elements
+* using incorrect coordinates
+* forgetting the page’s scroll position
+* comparing only the visible viewport
+* ignoring content below the fold
+* calculating colours from the wrong image region
+
+A gate containing these bugs may still output convincing numbers. Controlled mutations reveal whether its decisions are actually correct.
+
+That happened with your earlier SSIM gate: its mean SSIM of approximately `0.9977` looked excellent, but deletion of below-the-fold content could remain undetected.
+
+#### C. Whether the gate rejects safe transformations
+
+A gate that rejects every page will detect 100% of breaking mutations—but it is useless because it will never allow compression.
+
+Therefore, you must measure both:
+
+[
+\text{Breaking detection rate}
+==============================
+
+\frac{\text{breaking mutations correctly rejected}}
+{\text{all breaking mutations}}
+]
+
+and:
+
+[
+\text{Safe acceptance rate}
+===========================
+
+\frac{\text{safe mutations correctly accepted}}
+{\text{all safe mutations}}
+]
+
+For example:
+
+```text
+Breaking mutants:            600
+Correctly rejected:           594
+Breaking detection rate:     99%
+
+Safe mutants:                400
+Correctly accepted:           380
+Safe acceptance rate:        95%
+False-rejection rate:          5%
+```
+
+You want high breaking detection **and** high safe acceptance.
+
+---
+
+## 2. Why calculate SSIM if it is not in the final gate?
+
+SSIM is being used as a **comparison baseline**, not necessarily as a gate component.
+
+Your research argues:
+
+> A single global visual metric such as SSIM is insufficient for safely validating HTML compression; targeted checks are required.
+
+To support this claim scientifically, SSIM and your proposed gate must evaluate the exact same safe and breaking mutations.
+
+### What SSIM measures
+
+SSIM compares the overall:
+
+* brightness
+* contrast
+* image structure
+
+It produces a value close to `1.0` when two images are highly similar.
+
+The problem is that a webpage screenshot may contain a large white background. Removing one small but important button changes relatively few pixels, so SSIM may remain extremely high.
+
+Example:
+
+| Comparison           |   SSIM |
+| -------------------- | -----: |
+| Identical pages      | 1.0000 |
+| Comment removed      | 1.0000 |
+| Small button deleted | 0.9981 |
+| One word corrupted   | 0.9992 |
+| Large section moved  | 0.9400 |
+
+At an SSIM threshold of `0.995`, the missing button and corrupted word would incorrectly pass.
+
+### Why not test only one SSIM threshold?
+
+Because a reviewer could reasonably say:
+
+> SSIM failed only because you selected a poor threshold.
+
+Therefore, you should perform a **threshold sweep**.
+
+For example, test:
+
+```text
+0.900, 0.910, 0.920, ... 0.990, 0.991, ... 0.999
+```
+
+For every threshold, calculate:
+
+* breaking-mutation detection
+* safe-mutation acceptance
+* false acceptance
+* false rejection
+
+You might obtain results such as:
+
+| SSIM threshold | Breaking detection | Safe acceptance |
+| -------------: | -----------------: | --------------: |
+|          0.990 |                45% |            100% |
+|          0.995 |                68% |             98% |
+|          0.998 |                85% |             79% |
+|          0.999 |                94% |             51% |
+
+This would show the fundamental problem:
+
+* a loose threshold accepts damaged pages;
+* a strict threshold rejects harmless transformations.
+
+If no SSIM threshold achieves both high breaking detection and high safe acceptance, you have strong evidence that SSIM alone is unsuitable.
+
+## Why the multi-part gate performs better
+
+Each gate component is designed to detect a particular kind of damage:
+
+| Mutation            | Targeted check                              | Why SSIM may struggle                |
+| ------------------- | ------------------------------------------- | ------------------------------------ |
+| Delete visible text | Text integrity and unmatched-element checks | The changed area may be small        |
+| Corrupt a word      | Exact/normalized text comparison            | Only a few glyph pixels change       |
+| Move an element     | Bounding-box IoU and centre shift           | Global similarity can remain high    |
+| Change a colour     | ΔE00 colour comparison                      | Similar brightness can preserve SSIM |
+| Increase font size  | Bounding-box and text-layout comparison     | Effect depends on page size          |
+| Change page height  | Render-height check                         | Resizing or cropping can hide it     |
+
+The idea is:
+
+```text
+SSIM:
+One general score for the entire screenshot
+
+Your gate:
+Several specialised checks for different failure types
+```
+
+## The simplest summary
+
+You need the stress test because it is the stage where you deliberately create known-correct and known-broken examples. That allows you to validate the gate, find implementation bugs and choose defensible thresholds.
+
+You calculate SSIM during the same test to establish a fair baseline. If your targeted gate separates safe and breaking mutations better than SSIM at SSIM’s best possible threshold, you have direct evidence for the thesis’s central claim:
+
+> Verified compression requires a stress-tested, multi-signal acceptance gate; a high global SSIM score alone does not prove that a webpage remained functionally and visually equivalent.

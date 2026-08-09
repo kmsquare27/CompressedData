@@ -8,7 +8,7 @@ quantitative case that SSIM alone is insufficient, and the calibration data
 for freezing config/gate_config.yaml.
 
 Usage:
-    python src/pipeline/03_run_stress_test.py --source websight --k 20
+    python src/pipeline/03_run_stress_test.py --source webcode2m --k 20
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ from src.stress.mutations import MUTATIONS, apply_mutation  # noqa: E402
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", choices=["websight", "webcode2m"], default="websight")
+    ap.add_argument("--source", choices=["webcode2m"], default="webcode2m")
     ap.add_argument("--k", type=int, default=20, help="pages per mutation")
     args = ap.parse_args()
 
