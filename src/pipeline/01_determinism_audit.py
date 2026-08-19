@@ -3,7 +3,7 @@ harness and require pixel-identical output. Until this passes, no metric in
 the project means anything.
 
 Usage:
-    python src/pipeline/01_determinism_audit.py --source websight
+    python src/pipeline/01_determinism_audit.py --source webcode2m
 
 Definition of Done: >= 99% identical. Investigate every flake (usually an
 animation that escaped the freeze, or an asset that wasn't intercepted).

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html><head><title>Apache Tomcat 7 (7.0.69) - Tomcat Setup</title></head><body data-mut-id="0"><table data-mut-id="1" width="100%"><tr data-mut-id="2"><td data-mut-id="3"><a data-mut-id="4"><img data-mut-id="5" src="./images/tomcat.gif"/></a></td><td data-mut-id="6"><h1 data-mut-id="7"><font data-mut-id="8">Apache Tomcat 7</font></h1><font data-mut-id="9">Version 7.0.69, Apr 11 2016</font></td><td data-mut-id="10"><a data-mut-id="11"><img data-mut-id="12" src="./images/asf-logo.gif"/></a></td></tr></table><table data-mut-id="13" width="100%"><tr data-mut-id="14"><td data-mut-id="15"><hr data-mut-id="16"/></td></tr><tr data-mut-id="17"><td class="noPrint" data-mut-id="18" width="20%"><p data-mut-id="19"><strong data-mut-id="20">Links</strong></p><ul data-mut-id="21"><li data-mut-id="22"><a data-mut-id="23">Docs Home</a></li><li data-mut-id="24"><a data-mut-id="25">FAQ</a></li><li data-mut-id="26"><a data-mut-id="27">User Comments</a></li></ul><p data-mut-id="28"><strong data-mut-id="29">User Guide</strong></p><ul data-mut-id="30"><li data-mut-id="31"><a data-mut-id="32">1) Introduction</a></li><li data-mut-id="33"><a data-mut-id="34">2) Setup</a></li><li data-mut-id="35"><a data-mut-id="36">3) First webapp</a></li><li data-mut-id="37"><a data-mut-id="38">4) Deployer</a></li><li data-mut-id="39"><a data-mut-id="40">5) Manager</a></li><li data-mut-id="41"><a data-mut-id="42">6) Realms and AAA</a></li><li data-mut-id="43"><a data-mut-id="44">7) Security Manager</a></li><li data-mut-id="45"><a data-mut-id="46">8) JNDI Resources</a></li><li data-mut-id="47"><a data-mut-id="48">9) JDBC DataSources</a></li><li data-mut-id="49"><a data-mut-id="50">10) Classloading</a></li><li data-mut-id="51"><a data-mut-id="52">11) JSPs</a></li><li data-mut-id="53"><a data-mut-id="54">12) SSL/TLS</a></li><li data-mut-id="55"><a data-mut-id="56">13) SSI</a></li><li data-mut-id="57"><a data-mut-id="58">14) CGI</a></li><li data-mut-id="59"><a data-mut-id="60">15) Proxy Support</a></li><li data-mut-id="61"><a data-mut-id="62">16) MBean Descriptor</a></li><li data-mut-id="63"><a data-mut-id="64">17) Default Servlet</a></li><li data-mut-id="65"><a data-mut-id="66">18) Clustering</a></li><li data-mut-id="67"><a data-mut-id="68">19) Load Balancer</a></li><li data-mut-id="69"><a data-mut-id="70">20) Connectors</a></li><li data-mut-id="71"><a data-mut-id="72">21) Monitoring and Management</a></li><li data-mut-id="73"><a data-mut-id="74">22) Logging</a></li><li data-mut-id="75"><a data-mut-id="76">23) APR/Native</a></li><li data-mut-id="77"><a data-mut-id="78">24) Virtual Hosting</a></li><li data-mut-id="79"><a data-mut-id="80">25) Advanced IO</a></li><li data-mut-id="81"><a data-mut-id="82">26) Additional Components</a></li><li data-mut-id="83"><a data-mut-id="84">27) Mavenized</a></li><li data-mut-id="85"><a data-mut-id="86">28) Security Considerations</a></li><li data-mut-id="87"><a data-mut-id="88">29) Windows Service</a></li><li data-mut-id="89"><a data-mut-id="90">30) Windows Authentication</a></li><li data-mut-id="91"><a data-mut-id="92">31) Tomcat's JDBC Pool</a></li><li data-mut-id="93"><a data-mut-id="94">32) WebSocket</a></li></ul><p data-mut-id="95"><strong data-mut-id="96">Reference</strong></p><ul data-mut-id="97"><li data-mut-id="98"><a data-mut-id="99">Release Notes</a></li><li data-mut-id="100"><a data-mut-id="101">Configuration</a></li><li data-mut-id="102"><a data-mut-id="103">Tomcat Javadocs</a></li><li data-mut-id="104"><a data-mut-id="105">Servlet Javadocs</a></li><li data-mut-id="106"><a data-mut-id="107">JSP 2.2 Javadocs</a></li><li data-mut-id="108"><a data-mut-id="109">EL 2.2 Javadocs</a></li><li data-mut-id="110"><a data-mut-id="111">WebSocket 1.1 Javadocs</a></li><li data-mut-id="112"><a data-mut-id="113">JK 1.2 Documentation</a></li></ul><p data-mut-id="114"><strong data-mut-id="115">Apache Tomcat Development</strong></p><ul data-mut-id="116"><li data-mut-id="117"><a data-mut-id="118">Building</a></li><li data-mut-id="119"><a data-mut-id="120">Changelog</a></li><li data-mut-id="121"><a data-mut-id="122">Status</a></li><li data-mut-id="123"><a data-mut-id="124">Developers</a></li><li data-mut-id="125"><a data-mut-id="126">Architecture</a></li><li data-mut-id="127"><a data-mut-id="128">Functional Specs.</a></li><li data-mut-id="129"><a data-mut-id="130">Tribes</a></li></ul></td><td data-mut-id="131" id="mainBody" width="80%"><h1 data-mut-id="132">Tomcat Setup</h1><table data-mut-id="133"><tr data-mut-id="134"><td data-mut-id="135"><font data-mut-id="136"><a data-mut-id="137"></a><a data-mut-id="138"><strong data-mut-id="139">Table of Contents</strong></a></font></td></tr><tr data-mut-id="140"><td data-mut-id="141"><blockquote data-mut-id="142"><ul data-mut-id="143"><li data-mut-id="144"><a data-mut-id="145">Introduction</a></li><li data-mut-id="146"><a data-mut-id="147">Windows</a></li><li data-mut-id="148"><a data-mut-id="149">Unix daemon</a></li></ul></blockquote></td></tr></table><table data-mut-id="150"><tr data-mut-id="151"><td data-mut-id="152"><font data-mut-id="153"><a data-mut-id="154"><strong data-mut-id="155">Introduction</strong></a></font></td></tr><tr data-mut-id="156"><td data-mut-id="157"><blockquote data-mut-id="158"><p data-mut-id="159">
+      There are several ways to set up Tomcat for running on different
+      platforms. The main documentation for this is a file called
+      <a data-mut-id="160">RUNNING.txt</a>. We encourage you to refer to that
+      file if the information below does not answer some of your questions.
+    </p></blockquote></td></tr></table><table data-mut-id="161"><tr data-mut-id="162"><td data-mut-id="163"><font data-mut-id="164"><a data-mut-id="165"><strong data-mut-id="166">Windows</strong></a></font></td></tr><tr data-mut-id="167"><td data-mut-id="168"><blockquote data-mut-id="169"><p data-mut-id="170">
+      Installing Tomcat on Windows can be done easily using the Windows
+      installer. Its interface and functionality is similar to other wizard
+      based installers, with only a few items of interest.
+    </p><p data-mut-id="171"></p><ul data-mut-id="172"><li data-mut-id="173"><strong data-mut-id="174">Installation as a service</strong>: Tomcat will be
+            installed as a Windows service no matter what setting is selected.
+            Using the checkbox on the component page sets the service as "auto"
+            startup, so that Tomcat is automatically started when Windows
+            starts. For optimal security, the service should be run as a
+            separate user, with reduced permissions (see the Windows Services
+            administration tool and its documentation).</li><li data-mut-id="175"><strong data-mut-id="176">Java location</strong>: The installer will provide a default
+            JRE to use to run the service. The installer uses the registry to
+            determine the base path of a Java 6 or later JRE, including the JRE
+            installed as part of the full JDK. When running on a 64-bit
+            operating system, the installer will first look for a 64-bit JRE and
+            only look for a 32-bit JRE if a 64-bit JRE is not found. It is not
+            mandatory to use the default JRE detected by the installer. Any
+            installed Java 6 or later JRE (32-bit or 64-bit) may be used.</li><li data-mut-id="177"><strong data-mut-id="178">Tray icon</strong>: When Tomcat is run as a service, there
+            will not be any tray icon present when Tomcat is running. Note that
+            when choosing to run Tomcat at the end of installation, the tray
+            icon will be used even if Tomcat was installed as a service.</li><li data-mut-id="179">Refer to the
+            <a data-mut-id="180">Windows Service HOW-TO</a>
+            for information on how to manage Tomcat as a Windows service.
+            </li></ul><p data-mut-id="181">The installer will create shortcuts allowing starting and configuring
+       Tomcat. It is important to note that the Tomcat administration web
+       application can only be used when Tomcat is running.</p></blockquote></td></tr></table><table data-mut-id="182"><tr data-mut-id="183"><td data-mut-id="184"><font data-mut-id="185"><a data-mut-id="186"></a><a data-mut-id="187"><strong data-mut-id="188">Unix daemon</strong></a></font></td></tr><tr data-mut-id="189"><td data-mut-id="190"><blockquote data-mut-id="191"><p data-mut-id="192">Tomcat can be run as a daemon using the jsvc tool from the
+       commons-daemon project. Source tarballs for jsvc are included with the
+       Tomcat binaries, and need to be compiled. Building jsvc requires
+       a C ANSI compiler (such as GCC), GNU Autoconf, and a JDK.</p><p data-mut-id="193">Before running the script, the <code data-mut-id="196">--with-java</code> environment
+       variable should be set to the base path of the JDK. Alternately, when
+       calling the <code data-mut-id="195">./configure</code> script, the path of the JDK may
+       be specified using the <code data-mut-id="194">JAVA_HOME</code> parameter, such as
+       <code data-mut-id="197">./configure --with-java=/usr/java</code>.</p><p data-mut-id="198">Using the following commands should result in a compiled jsvc binary,
+       located in the <code data-mut-id="199">$CATALINA_HOME/bin</code> folder. This assumes
+       that GNU TAR is used, and that <code data-mut-id="200">CATALINA_HOME</code> is an
+       environment variable pointing to the base path of the Tomcat
+       installation.</p><p data-mut-id="201">Please note that you should use the GNU make (gmake) instead of
+       the native BSD make on FreeBSD systems.</p><div class="codeBox" data-mut-id="202"><pre data-mut-id="203"><code data-mut-id="204">
+    cd $CATALINA_HOME/bin
+    tar xvfz commons-daemon-native.tar.gz
+    cd commons-daemon-1.0.x-native-src/unix
+    ./configure
+    make
+    cp jsvc ../..
+    cd ../..
+</code></pre></div><p data-mut-id="205">Tomcat can then be run as a daemon using the following commands.</p><div class="codeBox" data-mut-id="206"><pre data-mut-id="207"><code data-mut-id="208">
+    CATALINA_BASE=$CATALINA_HOME
+    cd $CATALINA_HOME
+    ./bin/jsvc \
+        -classpath $CATALINA_HOME/bin/bootstrap.jar:$CATALINA_HOME/bin/tomcat-juli.jar \
+        -outfile $CATALINA_BASE/logs/catalina.out \
+        -errfile $CATALINA_BASE/logs/catalina.err \
+        -Dcatalina.home=$CATALINA_HOME \
+        -Dcatalina.base=$CATALINA_BASE \
+        -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager \
+        -Djava.util.logging.config.file=$CATALINA_BASE/conf/logging.properties \
+        org.apache.catalina.startup.Bootstrap
+</code></pre></div><p data-mut-id="209">You may also need to specify <code data-mut-id="210">-jvm server</code> if the JVM defaults
+       to using a server VM rather than a client VM. This has been observed on
+       OSX.</p><p data-mut-id="211">jsvc has other useful parameters, such as <code data-mut-id="212">-user</code> which
+       causes it to switch to another user after the daemon initialization is
+       complete. This allows, for example, running Tomcat as a non privileged
+       user while still being able to use privileged ports. Note that if you
+       use this option and start Tomcat as root, you'll need to disable the
+       <code data-mut-id="213">org.apache.catalina.security.SecurityListener</code> check that
+       prevents Tomcat starting when running as root.</p><p data-mut-id="214"><code data-mut-id="215">jsvc --help</code> will return the full jsvc usage
+       information. In particular, the <code data-mut-id="216">-debug</code> option is useful
+       to debug issues running jsvc.</p><p data-mut-id="217">The file <code data-mut-id="218">$CATALINA_HOME/bin/daemon.sh</code> can be used as a
+       template for starting Tomcat automatically at boot time from
+       <code data-mut-id="219">/etc/init.d</code> with jsvc.</p><p data-mut-id="220">Note that the Commons-Daemon JAR file must be on your runtime classpath
+       to run Tomcat in this manner.  The Commons-Daemon JAR file is in the
+       Class-Path entry of the bootstrap.jar manifest, but if you get a
+       ClassNotFoundException or a NoClassDefFoundError for a Commons-Daemon
+       class, add the Commons-Daemon JAR to the -cp argument when launching
+       jsvc.</p></blockquote></td></tr></table></td></tr><tr class="noPrint" data-mut-id="221"><td class="noPrint" data-mut-id="222" width="20%"></td><td data-mut-id="223" width="80%"><table data-mut-id="224"><tr data-mut-id="225"><td data-mut-id="226"><font data-mut-id="227"><a data-mut-id="228" id="comments_section"><strong data-mut-id="229">Comments</strong></a></font></td></tr><tr data-mut-id="230"><td data-mut-id="231"><blockquote data-mut-id="232"><p class="notice" data-mut-id="233"><strong data-mut-id="234">Notice: </strong>This comments section collects your suggestions
+              on improving documentation for Apache Tomcat.<br data-mut-id="235"/><br data-mut-id="236"/>
+              If you have trouble and need help, read
+              <a data-mut-id="237">Find Help</a> page
+              and ask your question on the tomcat-users
+              <a data-mut-id="238">mailing list</a>.
+              Do not ask such questions here. This is not a Q&amp;A section.<br data-mut-id="239"/><br data-mut-id="240"/>
+              The Apache Comments System is explained <a data-mut-id="241">here</a>.
+              Comments may be removed by our moderators if they are either
+              implemented or considered invalid/off-topic.</p></blockquote></td></tr></table></td></tr><tr data-mut-id="242"><td data-mut-id="243"><hr data-mut-id="244"/></td></tr><tr data-mut-id="245"><td data-mut-id="246"><div data-mut-id="247"><font data-mut-id="248"><em data-mut-id="249">
+        Copyright © 1999-2016, Apache Software Foundation
+        </em></font></div></td></tr></table><style data-mut-id="250">.noPrint {
+    display: none
+    }
+td#mainBody {
+    width: 100%
+    }
+code {
+    background-color: rgb(224, 255, 255);
+    padding: 0 0.1em
+    }
+table {
+    border-collapse: collapse;
+    text-align: left
+    }
+div.codeBox pre code, code.attributeName, code.propertyName, code.noHighlight, .noHighlight code {
+    background-color: transparent
+    }
+div.codeBox {
+    overflow: auto;
+    margin: 1em 0
+    }
+div.codeBox pre {
+    margin: 0;
+    padding: 4px;
+    border: 1px solid #999;
+    border-radius: 5px;
+    background-color: #eff8ff;
+    display: table;
+    /* To prevent <pre>s from taking the complete available width. */
+    /*
+      When it is officially supported, use the following CSS instead of display: table
+      to prevent big <pre>s from exceeding the browser window:
+      max-width: available;
+      width: min-content;
+      */
+    }
+p.notice {
+    border: 1px solid rgb(255, 0, 0);
+    background-color: rgb(238, 238, 238);
+    color: rgb(0, 51, 102);
+    padding: 0.5em;
+    margin: 1em 2em 1em 1em
+    }</style></body></html>

@@ -59,8 +59,8 @@ what surprised you, what you decided. This notebook is your defense evidence.
 
 ### Day 1 — data + determinism (Stage 1)
 ```powershell
-python src/pipeline/00_download_pilot_data.py --source websight --n 100
-python src/pipeline/01_determinism_audit.py  --source websight
+python src/pipeline/00_download_pilot_data.py --source webcode2m --n 100
+python src/pipeline/01_determinism_audit.py  --source webcode2m
 ```
 **Done when:** ≥99/100 pages pixel-identical across double renders.
 If a page flakes, open its `_a.png`/`_b.png` side by side; the usual culprits
@@ -70,9 +70,9 @@ Threats to Validity.
 
 ### Day 2 — Level 1 under the real gate (Stage 3)
 ```powershell
-python src/pipeline/02_run_level1.py --source websight
+python src/pipeline/02_run_level1.py --source webcode2m
 ```
-**Done when:** you have `reports/csv/level1_gate_websight.csv` and can answer:
+**Done when:** you have `reports/csv/level1_gate_webcode2m.csv` and can answer:
 acceptance rate, median reduction, and — for any rejected page — *which gate*
 tripped (the CSV has one boolean column per gate; that attribution is a paper
 table, not debugging noise). Expect numbers near your old pilot (~10–14%
@@ -80,35 +80,29 @@ median) but now trustworthy.
 
 ### Day 3 — stress test v1 (Stage 2.3)
 ```powershell
-python src/pipeline/03_run_stress_test.py --source websight --k 20
+python src/pipeline/03_run_stress_test.py --source webcode2m --k 20
 ```
 **Done when:** you can fill in this sentence with real numbers:
 "The gate rejected __% of breaking mutants and accepted __% of safe mutants;
 __% of breaking mutants had SSIM ≥ 0.95 and would have slipped an SSIM-only
 gate." That last number is the headline of your metric-validation section.
 
-### Day 4 — tune, re-run, widen
+### Day 4 — tune and re-run
 Read the per-gate columns of the stress CSV. If a breaking mutation class is
 slipping through, the responsible threshold is too loose; if safe mutants are
 being rejected, find which gate is too tight. Adjust `config/gate_config.yaml`,
-re-run Day 3. Then pull the real-world stratum and repeat Days 1–3 on it:
-```powershell
-python src/pipeline/00_download_pilot_data.py --source webcode2m --n 100
-python src/pipeline/01_determinism_audit.py  --source webcode2m
-python src/pipeline/02_run_level1.py         --source webcode2m
-python src/pipeline/03_run_stress_test.py    --source webcode2m --k 20
-```
+re-run Day 3.
 Real-world pages will be messier — some will crash or time out. That skip
 rate is a *statistic to record*, not a failure to hide.
 
 ### Day 5 — freeze and commit (Stage 2 done)
-When breaking-rejection ≥ 99% and safe-acceptance is high on **both** strata:
+When breaking-rejection ≥ 99% and safe-acceptance is high:
 ```powershell
 git add config/gate_config.yaml ; git commit -m "FREEZE gate thresholds after stress test"
 ```
 From this commit on, thresholds do not move mid-experiment. Write the
 supervisor one paragraph: determinism rate, gate calibration numbers, Level-1
-table on both datasets.
+table on the dataset.
 
 ---
 
@@ -122,8 +116,8 @@ table on both datasets.
    kit: it must be built on top of the frozen gate, and its old numbers must
    not be trusted or reused.
 2. **Level 3** (computed-style resynthesis) per protocol Stage 5, on the
-   200-page calibration set (100 WebSight + 100 WebCode2M you now have).
-3. **Scale** to 5,000 WebCode2M + 1,000 WebSight (protocol Stage 6), write the
+   100-page WebCode2M calibration set you now have.
+3. **Scale** to 5,000 WebCode2M pages (protocol Stage 6), write the
    pre-registration (Stage 7), then fine-tune the four conditions (Stage 8).
 
 ---
@@ -139,7 +133,7 @@ table on both datasets.
   inside the venv.
 - **Want LPIPS (G6)?** `pip install torch lpips`, set `use_lpips: true` in the
   config. Leave it off until the stress test shows the hard gates need it.
-- **HF download slow/blocked** — both datasets are public; retry, or reduce
+- **HF download slow/blocked** — the dataset is public; retry, or reduce
   `--n` for a first smoke test (`--n 10` works end to end).
 
 ## Golden rules (tape above your monitor)

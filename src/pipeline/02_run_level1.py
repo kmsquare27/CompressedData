@@ -3,7 +3,7 @@ page through Acceptance Gate v2. This regenerates your Level-1 table under a
 sound gate (your old numbers were produced under the broken one).
 
 Usage:
-    python src/pipeline/02_run_level1.py --source websight
+    python src/pipeline/02_run_level1.py --source webcode2m
 
 Outputs:
     outputs/level1/<source>/<id>.html          (minified pages)

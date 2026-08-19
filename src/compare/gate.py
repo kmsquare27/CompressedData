@@ -175,46 +175,64 @@ def _tiled_lpips(a: np.ndarray, b: np.ndarray, tile_h: int = 800) -> float:
 
 
 # ---------------------------------------------------------------------------
-# The gate
+# The gate, decomposed: render_page() + evaluate_pair()
 # ---------------------------------------------------------------------------
-def run_gate(orig_html_path, comp_html_path, harness, work_dir, page_id,
-             cfg: dict | None = None) -> dict:
-    """Render both files under the harness and evaluate all gates.
+# `run_gate` used to render and compare in one call. The two halves are now
+# separate because the mutation stress test (a) must exercise EXACTLY the
+# comparison code that gates production pages -- a stress test that
+# re-implements the metrics validates a copy, not the gate -- and (b) renders
+# the original once per page and evaluates ~25 mutants against that cached
+# render. `run_gate` keeps its exact signature, behavior and output keys.
 
-    Returns a flat dict (CSV-friendly) with per-gate booleans, scores and
-    an overall `accepted` flag. Screenshots land in work_dir.
-    """
+class PageArtifacts:
+    """One rendered page: everything evaluate_pair needs to compare it."""
+    __slots__ = ("html_path", "png_path", "html_text", "tokens", "layout", "img")
+
+    def __init__(self, html_path, png_path, html_text, tokens, layout, img):
+        self.html_path = str(html_path)
+        self.png_path = str(png_path)
+        self.html_text = html_text
+        self.tokens = tokens
+        self.layout = layout      # {boxes, docW, docH, text} from the harness
+        self.img = img            # np.uint8 RGB array of the full-page render
+
+
+def render_page(harness, html_path, png_path, token_counter=None) -> PageArtifacts:
+    """Render one HTML file under the harness and bundle all gate inputs."""
+    tk = token_counter or TokenCounter.get()
+    html_text = Path(html_path).read_text(encoding="utf-8", errors="ignore")
+    layout = harness.render(html_path, png_path)
+    img = np.asarray(Image.open(png_path).convert("RGB"))
+    return PageArtifacts(html_path, png_path, html_text, tk.count(html_text),
+                         layout, img)
+
+
+def evaluate_pair(orig: PageArtifacts, comp: PageArtifacts,
+                  cfg: dict | None = None, page_id: str = "") -> dict:
+    """Evaluate every gate on two already-rendered pages. Pure comparison:
+    no rendering happens here. Same output dict as run_gate."""
     cfg = cfg or load_config()
-    work_dir = Path(work_dir); work_dir.mkdir(parents=True, exist_ok=True)
-    tk = TokenCounter.get()
-    R: dict = {"page_id": page_id, "tokenizer": tk.name}
+    R: dict = {"page_id": page_id, "tokenizer": TokenCounter.get().name}
 
     # G0 -- parse
-    comp_text = Path(comp_html_path).read_text(encoding="utf-8", errors="ignore")
-    orig_text = Path(orig_html_path).read_text(encoding="utf-8", errors="ignore")
     try:
         import lxml.html as LH
-        LH.fromstring(comp_text)
+        LH.fromstring(comp.html_text)
         R["g0_parse"] = True
     except Exception as e:  # noqa: BLE001
         R["g0_parse"] = False
         R["fail_reason"] = f"parse:{e}"
 
     # G1 -- tokens
-    R["tokens_orig"] = tk.count(orig_text)
-    R["tokens_comp"] = tk.count(comp_text)
+    R["tokens_orig"] = orig.tokens
+    R["tokens_comp"] = comp.tokens
     R["reduction_pct"] = round(
         100.0 * (R["tokens_orig"] - R["tokens_comp"]) / max(R["tokens_orig"], 1), 3)
     R["g1_tokens"] = (R["tokens_comp"] < R["tokens_orig"]
                       if cfg["require_token_reduction"] else True)
 
-    # Render both sides
-    png_o = work_dir / f"{page_id}_orig.png"
-    png_c = work_dir / f"{page_id}_comp.png"
-    lay_o = harness.render(orig_html_path, png_o)
-    lay_c = harness.render(comp_html_path, png_c)
-    img_o = np.asarray(Image.open(png_o).convert("RGB"))
-    img_c = np.asarray(Image.open(png_c).convert("RGB"))
+    lay_o, lay_c = orig.layout, comp.layout
+    img_o, img_c = orig.img, comp.img
 
     # G2 -- geometry (never resize; mismatch is evidence)
     R["docH_orig"], R["docH_comp"] = lay_o["docH"], lay_c["docH"]
@@ -281,3 +299,33 @@ def run_gate(orig_html_path, comp_html_path, harness, work_dir, page_id,
                          R["g3_text"], R["g4_blocks"], R["g5_color"],
                          R["g6_lpips"]])
     return R
+
+
+# Visual gates only (G2-G6): what the stress test uses to score detection.
+# G0 always passes on mutants (they parse) and G1 measures token direction,
+# not vision -- style-adding mutants INCREASE tokens, so leaving G1 in the
+# stress verdict would let the gate "detect" them for a non-visual reason
+# and fake a perfect score. See STRESS_TEST.md.
+VISUAL_GATE_KEYS = ("g2_height", "g3_text", "g4_blocks", "g5_color", "g6_lpips")
+
+
+def visual_accepted(R: dict) -> bool:
+    """Acceptance by the visual gates alone (G2-G6), ignoring G0/G1."""
+    return all(bool(R.get(k, False)) for k in VISUAL_GATE_KEYS)
+
+
+def run_gate(orig_html_path, comp_html_path, harness, work_dir, page_id,
+             cfg: dict | None = None) -> dict:
+    """Render both files under the harness and evaluate all gates.
+
+    Returns a flat dict (CSV-friendly) with per-gate booleans, scores and
+    an overall `accepted` flag. Screenshots land in work_dir.
+    """
+    cfg = cfg or load_config()
+    work_dir = Path(work_dir); work_dir.mkdir(parents=True, exist_ok=True)
+    tk = TokenCounter.get()
+    art_o = render_page(harness, orig_html_path,
+                        work_dir / f"{page_id}_orig.png", tk)
+    art_c = render_page(harness, comp_html_path,
+                        work_dir / f"{page_id}_comp.png", tk)
+    return evaluate_pair(art_o, art_c, cfg, page_id)
