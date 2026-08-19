@@ -1,0 +1,22 @@
+# Acceptance Gate v2 thresholds -- CALIBRATED by the mutation stress test (steps 03+04).
+# Do not edit by hand after the freeze commit.
+# frozen_policy: strict
+# frozen_at_utc: 2026-08-19T01:29:27+00:00
+# git_commit: a0797ea
+# calibration_sources: ['webcode2m']
+# stress_csv_sha256: {'webcode2m': '3d74c52e50e118b5'}
+# n_breaking: 1066
+# n_safe: 338
+# target_recall: 0.99
+# slack: 1.25
+# composite_recall: 0.9728
+# composite_fpr: 0.0266
+height_tol_px: 1
+text_ratio_min: 0.9995
+iou_mean_min: 0.995
+center_shift_max_px: 1.0
+deltae_p95_max: 0.5
+deltae_max: 1.0
+require_token_reduction: true
+use_lpips: false
+lpips_max: 0.005
