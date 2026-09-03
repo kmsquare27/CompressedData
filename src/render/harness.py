@@ -27,11 +27,61 @@ FREEZE_CSS = (
     "caret-color:transparent!important;scroll-behavior:auto!important}"
 )
 
-# JS run inside the loaded page: visible atomic boxes + doc size + visible text.
+# JS run inside the loaded page: visible INK boxes + doc size + visible text.
 # Used by the acceptance gate (G2/G3/G4/G5).
+#
+# Why "ink" and not getBoundingClientRect():
+#   A block with no background and no border paints nothing itself -- only its
+#   text does. Its layout box can therefore change width dramatically with
+#   ZERO change to the rendered pixels (unwrap a neutral <div> and a
+#   left-aligned <p> may stretch from 100px to 1064px over empty space).
+#   Measuring that box made G4 report center shifts of hundreds of pixels, and
+#   made G5 average its CIEDE2000 over newly-included background, on renders
+#   that were pixel-identical. In the 87-page WebCode2M stress run every safe
+#   false-rejection was this artifact, and it set the zero-FPR bar so high
+#   (center_shift 482px, deltae_max 10.5) that per-metric calibration
+#   collapsed. Level 2 is DOM condensation, i.e. exactly this transformation,
+#   so the gate has to measure what is painted, not what is laid out.
+#
+# Rule: an element contributes a box if it puts ink on the canvas -- it has
+# direct text, is a replaced/atomic element, or paints a background, border or
+# shadow. Its rect is where that ink actually lands: the border box for
+# painted and replaced elements, the union of glyph rects for text-only ones.
 EXTRACT_JS = """
 () => {
   const ATOMIC = new Set(["IMG","INPUT","BUTTON","TEXTAREA","SELECT","SVG","VIDEO","HR"]);
+  const px = v => parseFloat(v) || 0;
+
+  const paints = cs => {
+    const bg = cs.backgroundColor || "";
+    const opaqueBg = bg !== "" && bg !== "transparent" &&
+                     bg.indexOf("rgba(0, 0, 0, 0)") !== 0;
+    const bgImg = (cs.backgroundImage || "none") !== "none";
+    const border =
+      (px(cs.borderTopWidth) > 0 && cs.borderTopStyle !== "none") ||
+      (px(cs.borderRightWidth) > 0 && cs.borderRightStyle !== "none") ||
+      (px(cs.borderBottomWidth) > 0 && cs.borderBottomStyle !== "none") ||
+      (px(cs.borderLeftWidth) > 0 && cs.borderLeftStyle !== "none");
+    return opaqueBg || bgImg || border || (cs.boxShadow || "none") !== "none";
+  };
+
+  const inkRect = (el, r) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const rects = range.getClientRects();
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (let i = 0; i < rects.length; i++) {
+      const q = rects[i];
+      if (q.width <= 0 || q.height <= 0) continue;
+      if (q.left   < x1) x1 = q.left;
+      if (q.top    < y1) y1 = q.top;
+      if (q.right  > x2) x2 = q.right;
+      if (q.bottom > y2) y2 = q.bottom;
+    }
+    if (x1 === Infinity) return r;
+    return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+  };
+
   const boxes = [];
   document.querySelectorAll("body *").forEach(el => {
     const cs = getComputedStyle(el);
@@ -41,13 +91,17 @@ EXTRACT_JS = """
     if (!visible) return;
     const leafText = [...el.childNodes].some(
         n => n.nodeType === 3 && n.textContent.trim().length > 0);
-    if (leafText || ATOMIC.has(el.tagName)) {
-      boxes.push({
-        text: (el.innerText || "").replace(/\\s+/g, " ").trim().slice(0, 120),
-        tag: el.tagName,
-        x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height
-      });
-    }
+    const isAtomic = ATOMIC.has(el.tagName);
+    const isPaint = paints(cs);
+    if (!(leafText || isAtomic || isPaint)) return;
+    const k = (isAtomic || isPaint) ? r : inkRect(el, r);
+    if (k.width <= 0 || k.height <= 0) return;
+    boxes.push({
+      text: (el.innerText || "").replace(/\\s+/g, " ").trim().slice(0, 120),
+      tag: el.tagName,
+      kind: isAtomic ? "atomic" : (isPaint ? "paint" : "text"),
+      x: k.x + scrollX, y: k.y + scrollY, w: k.width, h: k.height
+    });
   });
   return {
     boxes: boxes,
@@ -113,17 +167,14 @@ class RenderHarness:
 
     # -- core operations ------------------------------------------------------
     def load(self, html_path) -> None:
-     uri = Path(html_path).resolve().as_uri()
-     try:
-        self.page.goto(uri, wait_until="load", timeout=60000)
-     except Exception:                                   # slow page: fall back
-        self.page.goto(uri, wait_until="domcontentloaded", timeout=60000)
-     self.page.add_style_tag(content=FREEZE_CSS)
-     try:
-        self.page.evaluate("() => document.fonts ? document.fonts.ready : true")
-     except Exception:
-        pass
-     self.page.wait_for_timeout(400)                     # was 200
+        uri = Path(html_path).resolve().as_uri()
+        self.page.goto(uri, wait_until="load", timeout=30000)
+        self.page.add_style_tag(content=FREEZE_CSS)
+        try:
+            self.page.evaluate("() => document.fonts ? document.fonts.ready : true")
+        except Exception:
+            pass
+        self.page.wait_for_timeout(200)
 
     def extract_layout(self) -> dict:
         """Return {boxes, docW, docH, text} for the currently loaded page."""
