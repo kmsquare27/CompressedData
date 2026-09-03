@@ -284,10 +284,16 @@ def test_visual_verdict_ignores_g1():
           "full gate still enforces G1 for production")
     check(visual_accepted(R) is True,
           "visual verdict ignores G1 (v1's contamination bug is closed)")
-    # and a real text change trips G3 in the visual verdict
+    # and a real text change trips G3 in the visual verdict. Corrupted text
+    # necessarily changes pixels, so the mutant gets its OWN render here --
+    # reusing `img` would describe a page whose text changed with an
+    # identical raster, which cannot happen and which the gate's soundness
+    # rule (identical pixels => visually equivalent) correctly accepts.
+    img2 = img.copy()
+    img2[100:140, 60:400] = 0
     lay2 = {"boxes": [dict(box[0], text="hello mars")], "docW": 1280,
             "docH": 800, "text": "hello mars"}
-    c = PageArtifacts("c2.html", "c2.png", "<p>hello mars</p>", 9, lay2, img)
+    c = PageArtifacts("c2.html", "c2.png", "<p>hello mars</p>", 9, lay2, img2)
     R2 = evaluate_pair(a, c, {"height_tol_px": 2, "text_ratio_min": 0.995,
                               "iou_mean_min": 0.95, "center_shift_max_px": 5,
                               "deltae_p95_max": 2.0, "deltae_max": 5.0,

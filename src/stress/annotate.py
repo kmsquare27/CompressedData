@@ -184,6 +184,19 @@ def visually_changed(stats: dict) -> bool:
     return stats["n_diff_pixels"] > 0
 
 
+def ssim_rgb_lowmem(a: np.ndarray, b: np.ndarray):
+    """Delegates to the gate's implementation so the stress test's SSIM and
+    the gate's diagnostic SSIM are literally the same code (same-code-path
+    principle -- the number you calibrate on is the number you report).
+    Never raises: SSIM is diagnostic, and a null column must not cost a
+    multi-hour run."""
+    try:
+        from src.compare.gate import _ssim_rgb_lowmem
+        return _ssim_rgb_lowmem(a, b)
+    except Exception:
+        return None
+
+
 def ssim_union_canvas(a: np.ndarray, b: np.ndarray):
     """SSIM with both renders padded (white) onto the union canvas, so
     missing/added content COUNTS AGAINST the score instead of being cropped
@@ -191,16 +204,20 @@ def ssim_union_canvas(a: np.ndarray, b: np.ndarray):
     kill-shot analysis uses the MORE charitable of the two per sample, so
     'SSIM alone is insufficient' cannot be attributed to an unfair SSIM
     implementation."""
-    try:
-        from skimage.metrics import structural_similarity as ssim
-    except Exception:
-        return None
     H = max(a.shape[0], b.shape[0])
     W = max(a.shape[1], b.shape[1])
 
     def pad(x):
+        if x.shape[0] == H and x.shape[1] == W:
+            return x[:, :, :3]
         c = np.full((H, W, 3), 255, dtype=np.uint8)
         c[:x.shape[0], :x.shape[1]] = x[:, :, :3]
         return c
 
-    return round(float(ssim(pad(a), pad(b), channel_axis=2, data_range=255)), 5)
+    try:
+        pa, pb = pad(a), pad(b)
+    except Exception:
+        return None
+    v = ssim_rgb_lowmem(pa, pb)
+    del pa, pb
+    return v
