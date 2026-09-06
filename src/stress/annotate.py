@@ -48,12 +48,16 @@ STAMP_ATTR = "data-mut-id"
 
 
 def data_attr_selector_hazard(html: str) -> bool:
-    """True if inline CSS could style via data attributes, in which case
-    stamping ids could itself change rendering. Remote CSS is aborted by the
-    harness, so <style> blocks are the only live CSS source to check."""
+    """True if inline CSS could style THROUGH THE STAMP ATTRIBUTE, in which
+    case stamping ids could itself change rendering. CSS attribute selectors
+    name attributes exactly (there is no wildcard on the attribute NAME), so
+    only a selector containing `data-mut-id` is a hazard. The previous check
+    (`"[data-" in css`) skipped every page that styles any data-* attribute
+    of its own -- 2 pages and 44 stress samples for nothing. Remote CSS is
+    aborted by the harness, so <style> blocks are the only live CSS source."""
     soup = BeautifulSoup(html, "lxml")
     css = " ".join(s.get_text() or "" for s in soup.find_all("style"))
-    return "[data-" in css
+    return STAMP_ATTR in css
 
 
 def stamp_ids(html: str):
@@ -81,6 +85,66 @@ def stamp_ids(html: str):
 ANNOTATE_JS = """
 () => {
   const px = v => parseFloat(v) || 0;
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  // Inherited properties: a wrapper whose value differs from its parent's is
+  // load-bearing for its children even with zero box/background (e.g. a
+  // text-align:center or color wrapper). The old neutral() predicate never
+  // checked these, which is one reason 66% of collapse candidates were
+  // blacklisted by the render gate.
+  const INHERITED = ["color","font-family","font-size","font-weight","font-style",
+    "font-variant","font-stretch","line-height","letter-spacing","word-spacing",
+    "text-align","text-align-last","text-indent","text-transform","white-space",
+    "word-break","overflow-wrap","direction","visibility","list-style-type",
+    "list-style-position","list-style-image","quotes","tab-size","hyphens",
+    "text-shadow","writing-mode","text-orientation","caption-side","border-collapse",
+    "border-spacing","empty-cells","-webkit-text-fill-color","-webkit-text-stroke-width",
+    "-webkit-text-stroke-color","font-feature-settings","font-kerning",
+    "font-variant-ligatures","font-variant-numeric","text-rendering",
+    "text-underline-position","text-underline-offset","text-decoration-thickness",
+    "image-rendering","color-scheme","line-break","orphans","widows"];
+
+  // `clip: rect(...)` with an empty rect (applies to absolutely positioned
+  // elements only) -- the .sr-only / .visually-hidden pattern.
+  const clipZero = cs => {
+    if (cs.position !== "absolute" && cs.position !== "fixed") return false;
+    const m = /rect\\(\\s*([-\\d.]+)px,?\\s*([-\\d.]+)px,?\\s*([-\\d.]+)px,?\\s*([-\\d.]+)px\\s*\\)/
+              .exec(cs.clip || "");
+    if (!m) return false;
+    const t = +m[1], r = +m[2], b = +m[3], l = +m[4];
+    return (r - l) <= 0 || (b - t) <= 0;
+  };
+  // clip-path: inset(50%) or more clips everything.
+  const clipPathZero = cs => {
+    const m = /^inset\\(\\s*([\\d.]+)%\\s*\\)$/.exec(cs.clipPath || "");
+    return !!m && (+m[1]) >= 50;
+  };
+  // Border box entirely outside the clip region of an overflow!=visible
+  // ancestor (e.g. text inside a 1x1 overflow:hidden box, or an off-canvas
+  // menu inside an overflow:hidden container). CSS2.1 11.1.1: an ancestor
+  // clips a descendant unless the descendant's containing block is above
+  // the ancestor; approximated conservatively -- absolutely positioned boxes
+  // are only clipped by POSITIONED ancestors, fixed boxes never.
+  const clippedAway = (el, cs, r) => {
+    if (cs.position === "fixed") return false;
+    let x1 = r.left, y1 = r.top, x2 = r.right, y2 = r.bottom;
+    if (x2 - x1 <= 0 || y2 - y1 <= 0) return false;
+    for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+      const acs = getComputedStyle(a);
+      const clips = acs.overflowX !== "visible" || acs.overflowY !== "visible" ||
+                    (acs.contain || "").indexOf("paint") >= 0;
+      if (!clips) continue;
+      if (cs.position === "absolute" && acs.position === "static" &&
+          acs.transform === "none" && acs.filter === "none") continue;
+      const ar = a.getBoundingClientRect();
+      x1 = Math.max(x1, ar.left + px(acs.borderLeftWidth));
+      y1 = Math.max(y1, ar.top + px(acs.borderTopWidth));
+      x2 = Math.min(x2, ar.right - px(acs.borderRightWidth));
+      y2 = Math.min(y2, ar.bottom - px(acs.borderBottomWidth));
+      if (x2 - x1 <= 0 || y2 - y1 <= 0) return true;
+    }
+    return false;
+  };
+
   const els = [];
   document.querySelectorAll("[data-mut-id]").forEach(el => {
     const cs = getComputedStyle(el);
@@ -90,6 +154,30 @@ ANNOTATE_JS = """
       if (n.nodeType === 3) leafLen += n.textContent.trim().length;
     });
     const parent = el.parentElement;
+    const pcs = parent ? getComputedStyle(parent) : null;
+    const zeroArea = !(r.width > 0 && r.height > 0);
+    const offCanvas = r.right <= 0 || r.bottom <= 0;
+    const hidden = cs.display === "none" || cs.visibility === "hidden" ||
+                   px(cs.opacity) <= 0.01;
+    const clipped = !zeroArea && !hidden &&
+                    (clipZero(cs) || clipPathZero(cs) || clippedAway(el, cs, r));
+    const inSvg = el.namespaceURI === SVG_NS && el.tagName.toLowerCase() !== "svg";
+    const inheritDiff = !!pcs && INHERITED.some(
+        p => cs.getPropertyValue(p) !== pcs.getPropertyValue(p));
+    const wrapperHazard = inheritDiff ||
+        cs.float !== "none" || cs.clear !== "none" ||
+        (cs.textDecorationLine || "none") !== "none" ||
+        (cs.boxShadow || "none") !== "none" ||
+        (px(cs.outlineWidth) > 0 && cs.outlineStyle !== "none") ||
+        (cs.columnCount || "auto") !== "auto" ||
+        (cs.contain || "none") !== "none" || cs.isolation === "isolate" ||
+        (cs.mixBlendMode || "normal") !== "normal" ||
+        (cs.clipPath || "none") !== "none" || (cs.maskImage || "none") !== "none" ||
+        (cs.minHeight !== "0px" && cs.minHeight !== "auto") ||
+        (cs.minWidth !== "0px" && cs.minWidth !== "auto") ||
+        cs.maxHeight !== "none" || cs.maxWidth !== "none" ||
+        (cs.display === "inline" && cs.verticalAlign !== "baseline") ||
+        (pcs && pcs.display.startsWith("table") && pcs.display !== "table-cell");
     els.push({
       id: parseInt(el.getAttribute("data-mut-id"), 10),
       tag: el.tagName,
@@ -98,9 +186,9 @@ ANNOTATE_JS = """
       x: r.x + scrollX, y: r.y + scrollY, w: r.width, h: r.height,
       display: cs.display, position: cs.position,
       visibility: cs.visibility, opacity: px(cs.opacity),
-      paintable: r.width > 0 && r.height > 0 && r.right > 0 && r.bottom > 0 &&
-                 cs.display !== "none" && cs.visibility !== "hidden" &&
-                 px(cs.opacity) > 0.01,
+      paintable: !zeroArea && !offCanvas && !hidden && !clipped,
+      clipped: clipped, inSvg: inSvg,
+      wrapperHazard: !!wrapperHazard, inheritDiff: inheritDiff,
       displayNone: cs.display === "none",
       leafTextLen: leafLen,
       textLen: (el.textContent || "").trim().length,
@@ -148,6 +236,79 @@ def collect_meta(harness) -> PageMeta:
     Call immediately after render_page() on the stamped original, while it
     is still the loaded page."""
     return PageMeta(harness.page.evaluate(ANNOTATE_JS))
+
+
+# ---------------------------------------------------------------------------
+# In-page PRESCREEN of Level-2 edit candidates (no renders)
+# ---------------------------------------------------------------------------
+# For each candidate edit independently: apply it to the live DOM, ask the
+# oracle whether any remaining element's rect/computed style changed, then
+# restore the DOM exactly. Removal is simulated by swapping the element for
+# a comment node (leaves neighbouring whitespace text nodes in place, exactly
+# as BeautifulSoup's decompose() does); collapse by moving the children out.
+# An edit passes only if every changed/missing key belongs to the removed
+# subtree (or is the collapsed wrapper itself). The margin-collapse trap and
+# descendant-selector breakage (`.wrapper p {...}`) both show up here as
+# rect/style diffs on OTHER elements, which is why ~2/3 of collapse
+# candidates used to be blacklisted only after burning render budget.
+# Restore is verified: if the DOM does not come back identical, the page's
+# prescreen is aborted and the runner falls back to unfiltered gating.
+PRESCREEN_JS = """
+(edits) => {
+  const O = window.__oracle;
+  if (!O) return null;
+  const byId = new Map();
+  document.querySelectorAll("[data-mut-id]").forEach(
+      el => byId.set(parseInt(el.getAttribute("data-mut-id"), 10), el));
+  const out = [];
+  for (const [kind, id] of edits) {
+    const el = byId.get(id);
+    if (!el || !el.parentNode) { out.push({kind, id, ok: false, reason: "not found"}); continue; }
+    const expected = new Set(["m" + id]);
+    let restore = null;
+    if (kind === "remove") {
+      el.querySelectorAll("[data-mut-id]").forEach(
+          d => expected.add("m" + d.getAttribute("data-mut-id")));
+      const ph = document.createComment("mut");
+      el.replaceWith(ph);
+      restore = () => ph.replaceWith(el);
+    } else if (kind === "collapse") {
+      const kids = Array.from(el.childNodes);
+      if (!kids.length) { out.push({kind, id, ok: false, reason: "no children"}); continue; }
+      el.replaceWith(...kids);
+      restore = () => { kids[0].replaceWith(el); el.append(...kids); };
+    } else { out.push({kind, id, ok: false, reason: "unknown kind"}); continue; }
+    let res;
+    try { res = O.compare(); } catch (e) { res = {nDiff: -1, first: "compare error: " + e, missing: [], added: []}; }
+    restore();
+    const chk = O.compare();
+    const restored = chk.nDiff === 0 && chk.missing.length === 0 && chk.added.length === 0;
+    const extraMissing = res.missing.filter(k => !expected.has(k));
+    out.push({kind, id,
+              ok: res.nDiff === 0 && res.added.length === 0 && extraMissing.length === 0,
+              nDiff: res.nDiff, first: res.first, extraMissing: extraMissing.length,
+              restored});
+    if (!restored) { out.push({kind: "abort", id: -1, ok: false, reason: "restore failed"}); break; }
+  }
+  return out;
+}
+"""
+
+
+def prescreen_edits(harness, edits) -> list | None:
+    """Prescreen [(kind, id), ...] on the CURRENTLY LOADED stamped page.
+    Returns one dict per edit ({kind, id, ok, nDiff, first, ...}) in order,
+    or None if the oracle could not run / restore failed part-way (the
+    caller should then gate the unfiltered list)."""
+    try:
+        harness.oracle_baseline()
+        res = harness.page.evaluate(PRESCREEN_JS, [list(e) for e in edits])
+    except Exception as e:  # noqa: BLE001
+        print(f"[annotate] prescreen unavailable: {e}")
+        return None
+    if not res or any(r.get("kind") == "abort" for r in res):
+        return None
+    return res
 
 
 # ---------------------------------------------------------------------------
