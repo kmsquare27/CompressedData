@@ -126,9 +126,11 @@ def structure_stats(html: str) -> dict:
     tells you the size of the prize, not the prize."""
     try:
         from bs4 import BeautifulSoup
+
+        from src.compress.level1_minify import HTML_PARSER
     except Exception:
         return {}
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, HTML_PARSER)
     body = soup.body or soup
     els = body.find_all(True)
     wrappers, depth_sum, maxdepth = 0, 0, 0

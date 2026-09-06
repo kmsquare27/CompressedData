@@ -54,6 +54,7 @@ from tqdm import tqdm  # noqa: E402
 
 from src.compare.gate import (TokenCounter, evaluate_pair, load_config,  # noqa: E402
                               render_page)
+from src.compress.level1_minify import HTML_PARSER  # noqa: E402
 from src.render.harness import RenderHarness  # noqa: E402
 from src.stress import annotate  # noqa: E402
 from src.stress.mutations import parse_css_color  # noqa: E402
@@ -164,7 +165,7 @@ def apply_edits(stamped_html: str, edits: list[tuple[str, int]]) -> str:
     only to map browser ids onto soup nodes and must not reach the artifact
     (they would also inflate the token count they are meant to help reduce).
     """
-    soup = BeautifulSoup(stamped_html, "lxml")
+    soup = BeautifulSoup(stamped_html, HTML_PARSER)
     index = {}
     for el in soup.find_all(attrs={STAMP_ATTR: True}):
         index[int(el[STAMP_ATTR])] = el

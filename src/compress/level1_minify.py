@@ -50,6 +50,29 @@ import re
 from bs4 import BeautifulSoup, Comment
 from bs4.element import Stylesheet
 
+# Spec-compliant WHATWG parsing -- the same algorithm Chromium uses, so a
+# parse+serialize round trip re-parses to an identical DOM. Measured on 15
+# malformed WebCode2M pages: a no-op round trip changed the render on 14/15
+# under lxml but 1/15 under html5lib. Every BeautifulSoup call in this project
+# must use this parser; if stamp_ids() and apply_edits() disagree, Level 2
+# re-introduces the damage between stamping and editing.
+HTML_PARSER = "html5lib"
+
+
+def style_text(tag) -> str:
+    """CSS text of a <style> element, independent of the parser.
+
+    NOT interchangeable with tag.get_text(). A <style> tag's
+    interesting_string_types is Stylesheet, and only bs4's lxml builder wraps
+    stylesheet text in a Stylesheet node -- the html5lib builder emits a plain
+    NavigableString, which get_text() then filters out and returns "". Reading
+    .contents is faithful under both (verified: no entity substitution, so CSS
+    child selectors like `a > b` survive). Every "[data-" guard depends on
+    this; with get_text() under html5lib they would all silently see no CSS.
+    """
+    return "".join(str(c) for c in tag.contents)
+
+
 _STYLE_WRAP = re.compile(r"^<style>(.*)</style>$", re.S)
 
 
@@ -107,13 +130,13 @@ def _charset_declared(soup: BeautifulSoup) -> bool:
 # L1a -- render-neutral by construction
 # ---------------------------------------------------------------------------
 def level1a(html: str) -> str:
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, HTML_PARSER)
 
     # Is any data-* attribute referenced by CSS attribute selectors? (This is
     # the page's OWN data-* attributes, so the broad "[data-" check is right
     # here -- unlike the stamping hazard in stress/annotate.py.)
-    style_text = " ".join(s.get_text() for s in soup.find_all("style"))
-    data_attr_styled = "[data-" in style_text
+    css_all = " ".join(style_text(s) for s in soup.find_all("style"))
+    data_attr_styled = "[data-" in css_all
     charset_ok = _charset_declared(soup)
 
     # Comments (HTML only; CSS comments are handled by lightningcss below)
@@ -154,7 +177,7 @@ def level1a(html: str) -> str:
 
     # <style> blocks: CSS-only minification, HTML untouched
     for s in soup.find_all("style"):
-        css = s.string if s.string is not None else s.get_text()
+        css = s.string if s.string is not None else style_text(s)
         if not css:
             continue
         new = minify_css_text(css)

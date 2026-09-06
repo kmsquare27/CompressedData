@@ -1,6 +1,9 @@
 # Core (Day 1)
 playwright>=1.45
 beautifulsoup4>=4.12
+# The parser for every BeautifulSoup call -- see level1_minify.HTML_PARSER.
+html5lib>=1.1
+# Still required: src/compare/gate.py uses lxml.html directly.
 lxml>=5.0
 pillow>=10.0
 numpy>=1.26

@@ -40,6 +40,8 @@ from __future__ import annotations
 import numpy as np
 from bs4 import BeautifulSoup
 
+from src.compress.level1_minify import HTML_PARSER, style_text
+
 STAMP_ATTR = "data-mut-id"
 
 # ---------------------------------------------------------------------------
@@ -55,15 +57,15 @@ def data_attr_selector_hazard(html: str) -> bool:
     (`"[data-" in css`) skipped every page that styles any data-* attribute
     of its own -- 2 pages and 44 stress samples for nothing. Remote CSS is
     aborted by the harness, so <style> blocks are the only live CSS source."""
-    soup = BeautifulSoup(html, "lxml")
-    css = " ".join(s.get_text() or "" for s in soup.find_all("style"))
+    soup = BeautifulSoup(html, HTML_PARSER)
+    css = " ".join(style_text(s) for s in soup.find_all("style"))
     return STAMP_ATTR in css
 
 
 def stamp_ids(html: str):
     """Stamp data-mut-id on <body> and every element under it, in document
     order. Returns (stamped_html, n_stamped) or (None, 0) if no <body>."""
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, HTML_PARSER)
     body = soup.body
     if body is None:
         return None, 0

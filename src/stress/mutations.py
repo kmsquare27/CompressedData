@@ -39,6 +39,7 @@ from dataclasses import dataclass
 import numpy as np
 from bs4 import BeautifulSoup, Comment, NavigableString
 
+from src.compress.level1_minify import HTML_PARSER
 from src.stress.annotate import STAMP_ATTR
 
 ATOMIC = {"IMG", "INPUT", "BUTTON", "TEXTAREA", "SELECT", "SVG", "VIDEO", "HR"}
@@ -70,7 +71,7 @@ class MutationSpec:
 # Helpers
 # ---------------------------------------------------------------------------
 def _soup(html: str) -> BeautifulSoup:
-    return BeautifulSoup(html, "lxml")
+    return BeautifulSoup(html, HTML_PARSER)
 
 
 def _el(soup, mid: int):

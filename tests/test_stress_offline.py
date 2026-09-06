@@ -66,9 +66,15 @@ def test_stamping():
     check(s.body[annotate.STAMP_ATTR] == "0", "body gets id 0 (document order)")
     check(s.find("p")[annotate.STAMP_ATTR] == "2", "ids follow document order")
     check(not annotate.data_attr_selector_hazard(html), "no [data- selector -> no hazard")
-    check(annotate.data_attr_selector_hazard(
+    # Attribute selectors name attributes EXACTLY, so a page styling its own
+    # data-* is not a hazard -- only a selector naming the stamp attribute is.
+    check(not annotate.data_attr_selector_hazard(
         "<html><head><style>[data-x]{color:red}</style></head><body></body></html>"),
-        "[data- attribute selector detected as hazard")
+        "unrelated [data-x] selector is not a hazard")
+    check(annotate.data_attr_selector_hazard(
+        f"<html><head><style>[{annotate.STAMP_ATTR}]{{color:red}}</style></head>"
+        "<body></body></html>"),
+        "selector naming the stamp attribute detected as hazard")
 
 
 # ---------------------------------------------------------------------- operators
