@@ -111,7 +111,18 @@ def s_style_block(soup, ctx):
             s.append(Stylesheet(new) if Stylesheet else new)
 
 
-STEPS = [("comments", s_comments), ("scripts", s_scripts), ("links", s_links),
+def s_roundtrip(soup, ctx):
+    """No-op CONTROL. Step 1 of any BeautifulSoup-based transform is really
+    'parse with lxml and re-serialize', which on malformed real-world HTML
+    repairs the DOM: missing html/head/body inserted, unclosed tags closed,
+    misplaced content relocated. That alone can change the render. Without
+    this control the damage is misattributed to whatever transform happens to
+    run first."""
+    return
+
+
+STEPS = [("roundtrip", s_roundtrip),
+         ("comments", s_comments), ("scripts", s_scripts), ("links", s_links),
          ("meta", s_meta), ("attr_on", s_on), ("attr_aria", s_aria),
          ("attr_title", s_title), ("attr_data", s_data),
          ("style_attr_min", s_style_attr), ("style_block_min", s_style_block)]
