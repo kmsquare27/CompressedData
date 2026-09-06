@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+
+<html><head></head><body><nav class="navbar navbar-default navbar-fixed-top"><div class="container-fluid"><div class="navbar-header"><div><a class="navbar-brand"><h2>CARD</h2> </a></div><div><br/><br/><p><div><small><br/><div style="margin-right:1px;"><a class="navbar-copyright">Use or Download Copyright &amp; Disclaimer</a></div><div style="margin-right:1px;"><br/></div><div style="margin-top:5px;"><div class="navbar-copyright" style="color: #ffffff;">Help Us Curate: </div><a class="navbar-copyright">github.com/arpcard/amr_curation</a></div></small></div></p></div><button class="navbar-toggle collapsed"><span class="sr-only">Toggle Navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button></div><div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1"><ul class="nav navbar-nav navbar-right"><table style="width:450px;"><br/><tr><td><table, style="width:112.5px"><tr><td> <li><a>Browse</a></li></td><td><li><a>Analyze
+																								</a></li></td><td> <li><a>Download</a></li></td><td> <li><a>About</a></li></td></tr></table,></td></tr></table><tr><td><table, style="width:450px"><br/><tr><td><div><li class="nav navbar-center"><input class="form-control" id="search" style="width:450px"/><div id="update"></div></li></div></td></tr></table,></td></tr></ul><ul class="nav navbar-nav navbar-right"></ul></div></div></nav><div class="modal fade" id="noteModal"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><button class="close">×</button><h4 class="modal-title">A Note on Ongoing Revisions of the Antibiotic Resistance Ontology</h4></div><div class="modal-body"><p>
+
+			The Comprehensive Antibiotic Resistance Database gratefully acknowledges recent funding from the Genome Canada &amp; Canadian Institutes of Health Research's Bioinformatics &amp; Computational Biology program, allowing integration of the Antibiotic Resistance Ontology (ARO) with the Genomic Epidemiology Ontology, IRIDA platform, and OBO Foundry (see <a>Genome Canada press release</a>).  As such, the next two years will be a time of active development for the ARO. Expect significant changes in the ARO between monthly releases as well as occasional incomplete revisions, which may affect downstream analyses.
+			<h4>February 2017 Changes</h4><ul><li>
+					Use of the part_of relationship now follows canonical usage and is restricted to association of sub-units with their large multi-unit protein complexes
+				</li><li>
+					Extensive revisions to the antimicrobial efflux branch of the ARO
+				</li><li>
+					Extensive revisions to the rRNA mutations branch of the ARO
+				</li><li>
+					New use of the participates_in and has_part relationships in place of formerly incorrect usage of the part_of relationship for association of resistance determinants with their mechanism of action.
+				</li></ul><h4>April 2017 Changes</h4><ul><li>
+	 				Extensive addition of confers_resistance_to_drug relationships for efflux complexes
+	 			</li><li>
+	 				Drug and mechanism category updates for the Resistance Gene Identifier
+	 			</li></ul><h4>May 2017 Changes</h4><ul><li>
+	 				Addition of bitscores to detection models, curation of chloramphenicol exporter proteins, ontology changes, JSON file format changes
+	 			</li></ul><h4>August 2017 Changes</h4><ul><li>
+	 				Removal of redundant intermediate terms relating resistance determinant to drug class, with improved overall classification by Drug Class and Resistance Mechanism
+	 			</li></ul><h4>January 2018 Changes</h4><ul><li>
+ 					Parallel classification system added to the ARO for organization of RGI results: Drug Class, Resistance Mechanism, AMR Gene Family
+ 				</li><li>
+ 					ARO now available in GitHub, <a>https://github.com/arpcard</a></li></ul><h4>April 2018 Changes</h4><ul><li>
+ 					Addition of extensive ontological terms describing phenotypic testing for antimicrobial resistance
+ 				</li></ul></p></div><div class="modal-footer"><button class="btn btn-default">Close</button></div></div></div></div><div class="modal fade" id="myModal"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><button class="close">×</button><h4 class="modal-title">Message</h4></div><div class="modal-body"><p>...</p></div><div class="modal-footer"><button class="btn btn-default">Close</button></div></div></div></div><div class="modal fade" id="spinner-modal"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><button class="close">×</button><img class="displayed" src="/ajax_loader_blue_128.gif"/><span id="output"></span></div><div class="modal-body"><img class="displayed" src="/ajax_loader_blue_128.gif"/></div></div></div></div><div class="container"><div class="row container-fluid"><div class="col-md-10 col-md-offset-1"><div class="panel panel-default"><div class="panel-heading"><h1>high confidence TB <small></small></h1></div><div class="panel-heading" style="padding-top:0.5px;"><a>Download Sequences</a></div><div class="panel-body"><table class="table table-striped table-condensed table-bordered"><tbody><tr><td style="width: 185px;"> Accession </td><td>
+								MO:0000050
+				        	</td></tr><tr><td>Definition</td><td>This parameter is part of a confidence model for AMR developed by the Relational Sequencing Tuberculosis Data platform (ReSeqTB, https://platform.reseqtb.org). The confidence model is based on the likelihood ratio test (LR+) statistic that is used to evaluate whether mutations are positively or negatively associated with phenotypic resistance. The LR+ is derived from a drug susceptibility test, testing sensitivity and specificity. Under the null hypothesis of no association, the LR value is expected to be 1, but deviations from this can be due to an association with resistance or a low number of available isolate samples.  The LR+ measures the strength of association between the presence of a mutation and the drug resistance phenotype. A mutation graded as high confidence has a strong association of the mutation with phenotypic drug resistance. There is sufficient evidence that the mutation confers or is strongly associated with drug resistance. LR value is greater than 10.</td></tr><tr><td>Classification</td><td><b>3 ontology terms </b> | <a><a class="" id="show-btn-classification">Show</a></a><div class="collapse" id="show-classification">+ <a>detection model or parameter</a> <br/>+ <a>detection parameter</a> <br/>+ <a>detection model or meta-model</a> <br/></div></td></tr><tr><td>Parent Term(s)</td><td><b>3 ontology terms </b> | <a><a class="" id="show-btn-parents">Show</a></a><div class="collapse" id="show-parents">+ <i>part_of</i> <a>protein variant model</a> <br/>+ <a>mutation in TB</a> <br/>+ <a>rRNA gene variant model</a> <br/></div></td></tr><tr><td>Publications</td><td><p>Ezewudo M, et al. 2018. Sci Rep 8(1):15382 Integrating standardized whole genome sequence analysis with a global Mycobacterium tuberculosis antibiotic resistance knowledgebase. (<a>PMID 30337678</a>)</p></td></tr></tbody></table><div class="modal fade" id="myModal"><div class="modal-dialog-"><div class="modal-content-"><div class="modal-header"><button class="close">×</button><h4 class="modal-title">Graph</h4></div><div class="modal-body"><div class="modal-content" id="graph"></div></div><div class="modal-footer"><button class="btn btn-default">Close</button></div></div></div></div></div></div></div></div></div><style>body {
+    padding-top: 200px;
+    /* Whatever the height of your navbar is; the default is 50px */
+    font-family: "Open Sans", Verdana !important
+    }
+h1 {
+    font-family: "Open Sans", Verdana !important
+    }
+.container {
+    width: 100% !important
+    }
+.navbar-header {
+    padding-bottom: 35px
+    }
+input, textarea {
+    font-family: "Open Sans", Verdana
+    }
+.navbar-copyright {
+    position: relative;
+    float: left;
+    margin-right: 0;
+    padding: 0;
+    margin-top: 1px;
+    margin-bottom: 1px;
+    background-color: transparent;
+    background-image: none;
+    border: 1px solid transparent;
+    border-radius: 0
+    }
+.centeredlogo {
+    width: 135px;
+    height: 100px;
+    line-height: 100px;
+    text-align: center;
+    border: 1px solid white;
+    padding: 1px
+    }
+.centeredlogo img {
+    vertical-align: middle
+    }
+.displayed {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 50px
+    }
+.modal-body {
+    height: auto;
+    width: auto
+    }
+body .modal {
+    /* new custom width */
+    width: 800px;
+    /* must be half of the width, minus scrollbar on the left (30px) */
+    margin-left: 280px
+    }</style></body><footer><div class="bottom"><div class="container"><div class="hidden-xs"><table><tr><td class="centeredlogo"><div><img height="auto" src="/sponsors/1_INN_CFI_ENB_2C_RGB-620x208.jpg" width="125"/> </div></td><td class="centeredlogo"><div><img height="auto" src="/sponsors/2_cihr-logo.jpg" width="125"/> </div></td><td class="centeredlogo"><div><img height="auto" src="/sponsors/3_cisco.jpeg" width="125"/> </div></td><td class="centeredlogo"><div><img height="auto" src="/sponsors/4_iidr_logo.jpg" width="250"/> </div></td><td class="centeredlogo"><div><img height="auto" src="/sponsors/5_GenomeCanadaColor.jpg" width="125"/> </div></td><td class="centeredlogo"><div><img height="auto" src="/sponsors/6_nserc_crsng_high.jpg" width="125"/> </div></td><td class="centeredlogo"><div><img height="auto" src="/sponsors/7_orf.jpeg" width="125"/> </div></td> </tr></table></div><div class="hidden-md hidden-sm hidden-lg"><div class="col-md-4" width="20%"><span class=""><img src="/sponsors/1_INN_CFI_ENB_2C_RGB-620x208.jpg" width="150"/></span> </div><div class="col-md-4" width="20%"><span class=""><img src="/sponsors/2_cihr-logo.jpg" width="150"/></span> </div><div class="col-md-4" width="20%"><span class=""><img src="/sponsors/3_cisco.jpeg" width="150"/></span> </div><div class="col-md-4" width="20%"><span class=""><img src="/sponsors/4_iidr_logo.jpg" width="150"/></span> </div><div class="col-md-4" width="20%"><span class=""><img src="/sponsors/5_GenomeCanadaColor.jpg" width="150"/></span> </div><div class="col-md-4" width="20%"><span class=""><img src="/sponsors/6_nserc_crsng_high.jpg" width="150"/></span> </div><div class="col-md-4" width="20%"><span class=""><img src="/sponsors/7_orf.jpeg" width="150"/></span> </div> </div></div></div><div><small>Citation: <a>Alcock <i>et al</i>. 2023. CARD 2023: Expanded Curation, Support for Machine Learning, and Resistome Prediction at the Comprehensive Antibiotic Resistance Database. <i>Nucleic Acids Research</i>, <b>51</b>, D690-D699.</a></small></div><hr class="star-primary"/></footer></html>
