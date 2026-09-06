@@ -68,6 +68,14 @@ def classify(intent: str, changed: bool):
         return ("ok", 1, True) if changed else ("dud", 0, False)
     if intent == "safe":
         return ("ok", 0, True) if not changed else ("unsafe_safe", 1, False)
+    if intent == "tolerable":
+        # Sub-JND: a NEGATIVE (must be accepted) that DOES change pixels --
+        # the only kind of sample able to bound a threshold from above, since
+        # the gate accepts identical rasters unconditionally. One that changed
+        # nothing is not wrong, just uninformative: it collapses into the
+        # pixel-identical safe class, so it is excluded rather than padding
+        # the negative count with a sample that cannot be rejected.
+        return ("ok", 0, True) if changed else ("tolerable_noop", 0, False)
     return ("ok", int(changed), False)  # probe: reported, never calibrated
 
 
@@ -163,8 +171,19 @@ def run_source(source: str, args, harness, cfg, tk) -> Path:
                                         work / f"{pid}__{sp.name}__{vk}.png", tk)
                     pix = annotate.pixel_stats(art_o.img, art_c.img)
                     changed = annotate.visually_changed(pix)
-                    if (sp.intent == "breaking" and not changed
-                            and outcome.target_ids
+                    resample = (sp.intent == "breaking" and not changed)
+                    if sp.intent == "tolerable":
+                        # Want small-but-nonzero. Nothing changed ->
+                        # uninformative. Too much changed -> the operator did
+                        # something other than intended (a 0.5px nudge that
+                        # triggered a line re-wrap), and calling that
+                        # imperceptible would loosen thresholds on a false
+                        # premise. Cap is per-operator; ops bounded by
+                        # construction set 0.
+                        cap = getattr(sp, "max_diff_frac", 0.0)
+                        resample = (not changed) or bool(
+                            cap and pix["diff_frac"] > cap)
+                    if (resample and outcome.target_ids
                             and attempt < args.max_attempts):
                         exclude |= set(outcome.target_ids)
                         continue
@@ -180,6 +199,14 @@ def run_source(source: str, args, harness, cfg, tk) -> Path:
 
             changed = annotate.visually_changed(pix)
             status, vlabel, calib = classify(sp.intent, changed)
+            # Last-attempt overshoot: the resample loop can exhaust attempts
+            # with the screen still violated. Such a sample is NOT a verified
+            # imperceptible negative -- record it as a finding instead of
+            # letting it widen a threshold.
+            _cap = getattr(sp, "max_diff_frac", 0.0)
+            if (sp.intent == "tolerable" and changed and _cap
+                    and pix["diff_frac"] > _cap):
+                status, vlabel, calib = "tolerable_reflow", 0, False
             row.update({"status": status, "attempts": attempt,
                         "target_ids": ";".join(map(str, outcome.target_ids)),
                         "severity_nominal": outcome.severity_nominal,
@@ -213,7 +240,13 @@ def summarize(out_csv: Path, source: str) -> None:
         print("[03] no calibration-eligible samples yet"); return
     ok["accepted_visual"] = ok["accepted_visual"].astype(bool)
     brk = ok[ok["verified_label"] == 1]
-    safe = ok[ok["verified_label"] == 0]
+    # By INTENT, not by label: tolerable samples are also verified_label == 0,
+    # so selecting on the label would fold the sub-JND class into the safe
+    # count and report each of them twice. The two classes are reported
+    # separately because they mean different things -- safe is pixel-identical
+    # and unrejectable, tolerable is pixel-different and is what actually
+    # bounds a threshold.
+    safe = ok[ok["intent"] == "safe"] if "intent" in ok else ok[ok["verified_label"] == 0]
     print(f"\nAt PROVISIONAL thresholds, visual gates G2-G6 only "
           f"(G0/G1 recorded but excluded -- see STRESS_TEST.md):")
     if len(brk):
@@ -227,6 +260,20 @@ def summarize(out_csv: Path, source: str) -> None:
         print(f"  verified-safe accepted:     "
               f"{100.0 * safe['accepted_visual'].mean():.1f}%  "
               f"({int(safe['accepted_visual'].sum())}/{len(safe)})")
+
+    tol = ok[ok["intent"] == "tolerable"] if "intent" in ok else ok.iloc[:0]
+    if len(tol):
+        print(f"  sub-JND (tolerable) accepted: "
+              f"{100.0 * tol['accepted_visual'].mean():.1f}%  "
+              f"({int(tol['accepted_visual'].sum())}/{len(tol)})"
+              f"   <-- the ONLY negatives that can constrain a threshold")
+        per = tol.groupby(["protocol_id", "variant"])["accepted_visual"]
+        print(per.apply(lambda s: f"{100.0 * s.mean():.0f}% accepted "
+                                  f"(n={len(s)})").to_string())
+        sev = pd.to_numeric(tol.get("severity_achieved"), errors="coerce")
+        if sev.notna().any():
+            print(f"  max achieved dE00 on T1: {sev.max():.2f} "
+                  f"(JND ~= 1.0, so imperceptibility holds by construction)")
 
     if len(brk):
         for col, label in (("ssim_diag", "common-crop"), ("ssim_canvas", "union-canvas")):

@@ -318,9 +318,62 @@ def run_all():
                test_m4_delta_e_targeting, test_m6_computed_not_inline,
                test_m7_swap, test_safe_ops, test_determinism,
                test_classify_and_pixels, test_visual_verdict_ignores_g1,
-               test_probe_x1]:
+               test_probe_x1, test_subjnd_operators,
+               test_tolerable_classification]:
         fn()
     print(f"\nALL {PASS} CHECKS PASSED")
+
+
+
+# ---------------------------------------------------------------------------
+# T1/T2 -- sub-JND negatives (the only samples that can constrain a threshold)
+# ---------------------------------------------------------------------------
+def test_subjnd_operators():
+    print("[T1/T2] sub-JND tolerable class")
+    for base in [(255, 255, 255), (243, 244, 246), (128, 128, 128),
+                 (37, 99, 235), (0, 0, 0), (17, 24, 39)]:
+        got = M.nearest_subjnd_color(base, 0.5, cap=1.0)
+        check(got is not None and 0.0 < got[1] < 1.0,
+              f"base {base} admits a strictly sub-JND colour "
+              f"(dE00={got[1] if got else '-'})")
+
+    t1, t2 = M.BY_NAME["t1_recolor_subjnd"], M.BY_NAME["t2_shift_subpixel"]
+    check(t1.intent == "tolerable" and t2.intent == "tolerable",
+          "T1/T2 declare intent=tolerable")
+    check(t1.max_diff_frac == 0.0,
+          "T1 needs no integrity screen (sub-JND bound holds by construction)")
+    check(t2.max_diff_frac > 0.0,
+          "T2 carries a diff_frac screen (0.5px may trigger a line re-wrap)")
+
+    html = ('<html><body><div data-mut-id="0">'
+            '<div data-mut-id="1">hello world</div></div></body></html>')
+    meta = META(E(0, "BODY", nChildElems=1),
+                E(1, "DIV", bg="rgb(255, 255, 255)", w=400, h=40,
+                  leafTextLen=11, textLen=11))
+    out = M.apply_mutation("t1_recolor_subjnd", html, meta,
+                           random.Random(0), "de0_5", set())
+    check(out is not None and 0.0 < out.severity_achieved < 1.0,
+          f"T1 emits a sub-JND recolour "
+          f"(dE00={out.severity_achieved if out else '-'})")
+    out2 = M.apply_mutation("t2_shift_subpixel", html, meta,
+                            random.Random(0), "px0_5", set())
+    check(out2 is not None and "0.5px" in out2.html,
+          "T2 emits a half-pixel margin shift")
+
+
+def test_tolerable_classification():
+    print("[classify] tolerable is a NEGATIVE that must change pixels")
+    sys.path.insert(0, str(ROOT / "src" / "pipeline"))
+    import importlib
+    runner = importlib.import_module("03_run_stress_test")
+    check(runner.classify("tolerable", True) == ("ok", 0, True),
+          "tolerable + changed -> calibration NEGATIVE (constrains thresholds)")
+    check(runner.classify("tolerable", False) == ("tolerable_noop", 0, False),
+          "tolerable + unchanged -> excluded (cannot constrain anything)")
+    check(runner.classify("safe", False) == ("ok", 0, True),
+          "safe class unchanged by the addition")
+    check(runner.classify("breaking", True) == ("ok", 1, True),
+          "breaking class unchanged by the addition")
 
 
 if __name__ == "__main__":

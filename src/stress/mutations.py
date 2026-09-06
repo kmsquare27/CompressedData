@@ -57,12 +57,13 @@ class MutationOutcome:
 @dataclass(frozen=True)
 class MutationSpec:
     name: str
-    intent: str                      # breaking | safe | probe
+    intent: str                      # breaking | safe | tolerable | probe
     family: str                      # structure | text | geometry | color | typography | source
     fn: object
     variants: tuple = (("default", ()),)   # ((key, ((param, value), ...)), ...)
     protocol_id: str = ""
     extension: bool = False          # True = beyond the protocol's M1-M7/S1-S6 list
+    max_diff_frac: float = 0.0       # tolerable ops only: integrity screen
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +160,39 @@ def _de00(lab1: np.ndarray, lab2: np.ndarray) -> float:
 _LAB_DIRS = [np.array(d, float) for d in
              [(0, 0, 1), (0, 0, -1), (0, 1, 0), (0, -1, 0),
               (-1, 0, 0), (1, 0, 0)]]
+
+
+def nearest_subjnd_color(rgb, target: float = 0.5, cap: float = 1.0,
+                         radius: int = 3):
+    """Closest 8-bit colour to `rgb` whose CIEDE2000 distance is nonzero and
+    STRICTLY BELOW `cap` (the just-noticeable difference), aiming near
+    `target`.
+
+    color_at_delta_e() searches six fixed Lab directions -- right for the
+    supra-JND severities M4 needs, but it misses the finest steps: from white
+    its smallest move is dE00 1.06, already over the JND, so it cannot produce
+    a sub-JND mutant on a white background, and white backgrounds are most of
+    the web. The true minimum from white is 0.198 (rgb 254,254,254), a pure
+    luminance step reachable only by moving all three channels together.
+
+    So search the small offset cube exhaustively, vectorised: ~343 candidates,
+    two skimage calls, exact rather than iterative. Returns (rgb, achieved_de)
+    or None if this base admits no sub-JND neighbour."""
+    from skimage import color as skc
+    base = np.array(rgb[:3], dtype=float)
+    offs = np.arange(-radius, radius + 1)
+    grid = np.array(np.meshgrid(offs, offs, offs, indexing="ij")).reshape(3, -1).T
+    cand = np.unique(np.clip(base[None, :] + grid, 0, 255), axis=0)
+    lab_b = skc.rgb2lab((base / 255.0).reshape(1, 1, 3)).reshape(1, 3)
+    lab_c = skc.rgb2lab((cand / 255.0).reshape(-1, 1, 3)).reshape(-1, 3)
+    des = skc.deltaE_ciede2000(np.repeat(lab_b, len(cand), axis=0), lab_c)
+    ok = (des > 1e-6) & (des < cap)
+    if not ok.any():
+        return None
+    idx = np.flatnonzero(ok)
+    pick = idx[np.argmin(np.abs(des[idx] - target))]
+    r, g, b = (int(v) for v in cand[pick])
+    return (r, g, b), round(float(des[pick]), 3)
 
 
 def color_at_delta_e(rgb, target: float, tol: float = 0.5):
@@ -291,6 +325,84 @@ def m3_shift_element(html, meta, rng, params, exclude):
     _add_style(tag, f"margin-left:{new_ml:g}px !important")
     return MutationOutcome(str(s), (t["id"],), severity_nominal=float(px),
                            detail=f"margin-left {t['mar'][3]:g}->{new_ml:g}px on {_preview(t)}")
+
+
+def t1_recolor_subjnd(html, meta, rng, params, exclude):
+    """T1 [tolerable]: shift one element's background by CIEDE2000 ~= 0.5 --
+    BELOW the just-noticeable difference (dE00 ~= 1.0), so the pixels provably
+    change while the page provably looks the same.
+
+    Why this class must exist: every `safe` operator renders pixel-identical
+    by definition of the verification rule, and gate.evaluate_pair accepts
+    identical rasters unconditionally. So no safe sample can be rejected at
+    ANY threshold, the false-rejection axis carries no information, and
+    calibration drives every threshold to its floor for want of a
+    counterexample. Real compressions are NOT pixel-identical -- 31/100
+    Level-1 pages render differently and remain visually correct -- so a
+    floor-tight gate discards them. Sub-JND mutants supply the missing
+    negative: pixel-different, imperceptible, labelled correct BY
+    CONSTRUCTION rather than by anyone's judgement.
+
+    Achieved dE00 is recorded per sample, so the perceptual claim is
+    auditable rather than asserted."""
+    target = dict(params).get("target_de", 0.5)
+    cands = meta.candidates(
+        lambda e: e["paintable"] and _area(e) >= 100
+        and e["tag"] not in _NEVER_TOUCH
+        and (parse_css_color(e["bg"]) or (0, 0, 0, 0))[3] >= 0.999, exclude)
+    if not cands:
+        return None
+    order = list(cands)
+    rng.shuffle(order)
+    for t in order[:10]:
+        rgb = parse_css_color(t["bg"])
+        found = nearest_subjnd_color(rgb, float(target), cap=1.0)
+        if found is None:
+            continue
+        (r, g, b), achieved = found
+        s = _soup(html)
+        tag = _el(s, t["id"])
+        if tag is None:
+            continue
+        _add_style(tag, f"background-color:rgb({r},{g},{b}) !important")
+        return MutationOutcome(
+            str(s), (t["id"],), severity_nominal=float(target),
+            severity_achieved=achieved,
+            detail=f"sub-JND bg {t['bg']} -> rgb({r},{g},{b}) "
+                   f"dE00={achieved} on {_preview(t)}")
+    return None
+
+
+def t2_shift_subpixel(html, meta, rng, params, exclude):
+    """T2 [tolerable]: nudge one element's margin-left by 0.5px. Chromium lays
+    out in 1/64px units, so this re-antialiases the element's edges without
+    moving it a whole pixel -- measurable, invisible.
+
+    Unlike T1 the bound is not guaranteed by construction: on a tightly fitted
+    text box half a pixel can trigger a line re-wrap, which IS visible. That
+    failure is detectable rather than perceptual -- antialiasing touches a
+    thin edge band, a reflow moves whole paragraphs -- so the runner screens
+    this operator on diff_frac (max_diff_frac) and resamples when the change
+    is too large to be antialiasing. The screen is an operator-integrity
+    check in the same family as dud resampling; it does NOT adjudicate
+    perceptibility."""
+    px = dict(params).get("px", 0.5)
+    cands = meta.candidates(
+        lambda e: e["paintable"] and e["position"] in ("static", "relative")
+        and e["tag"] not in _NEVER_TOUCH and _area(e) >= 16, exclude)
+    if not cands:
+        return None
+    t = _pick(rng, cands)
+    s = _soup(html)
+    tag = _el(s, t["id"])
+    if tag is None:
+        return None
+    new_ml = t["mar"][3] + px
+    _add_style(tag, f"margin-left:{new_ml:g}px !important")
+    return MutationOutcome(
+        str(s), (t["id"],), severity_nominal=float(px),
+        detail=f"sub-pixel margin-left {t['mar'][3]:g}->{new_ml:g}px "
+               f"on {_preview(t)}")
 
 
 def m4_recolor_element(html, meta, rng, params, exclude):
@@ -603,6 +715,17 @@ REGISTRY: tuple = (
                  s5_remove_display_none, protocol_id="S5"),
     MutationSpec("s6_reminify", "safe", "source", s6_reminify,
                  protocol_id="S6"),
+    # Sub-JND negatives: pixel-different but imperceptible. The protocol's
+    # S1-S6 are all pixel-identical, so they are accepted by the gate's
+    # soundness rule at any threshold and cannot bound one from above. These
+    # can. Marked extensions.
+    MutationSpec("t1_recolor_subjnd", "tolerable", "color", t1_recolor_subjnd,
+                 variants=(("de0_5", (("target_de", 0.5),)),),
+                 protocol_id="T1", extension=True),
+    MutationSpec("t2_shift_subpixel", "tolerable", "geometry",
+                 t2_shift_subpixel,
+                 variants=(("px0_5", (("px", 0.5),)),),
+                 protocol_id="T2", extension=True, max_diff_frac=0.02),
     MutationSpec("x1_legacy_whitespace_regex", "probe", "source",
                  x1_legacy_whitespace_regex, protocol_id="X1", extension=True),
 )

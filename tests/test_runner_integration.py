@@ -118,7 +118,8 @@ def main():
     ok = df[df["status"] == "ok"]
     calib = ok[ok["calib_include"] == True]  # noqa: E712
     brk = calib[calib["verified_label"] == 1]
-    safe = calib[calib["verified_label"] == 0]
+    safe = calib[calib["intent"] == "safe"]
+    tol = calib[calib["intent"] == "tolerable"]
     check(len(brk) and len(safe), "both verified classes produced")
     check((~brk["accepted_visual"].astype(bool)).mean() > 0.5,
           "provisional visual gates reject most verified-breaking mutants")
@@ -128,6 +129,16 @@ def main():
           "verified-safe means pixel-identical under the (fake) harness")
     check((brk["n_diff_pixels"] > 0).all(),
           "verified-breaking means pixels actually changed")
+    # The sub-JND class is the point of the tolerable intent: negatives that
+    # DO change pixels, hence the only samples able to bound a threshold from
+    # above (pixel-identical negatives are accepted at any threshold).
+    check((tol["verified_label"] == 0).all() if len(tol) else True,
+          "sub-JND mutants are labelled NEGATIVE")
+    check((tol["n_diff_pixels"] > 0).all() if len(tol) else True,
+          "calibrated sub-JND mutants changed pixels (they can constrain)")
+    noop = df[df["status"] == "tolerable_noop"]
+    check(((noop["calib_include"] != True).all() if len(noop) else True),  # noqa: E712
+          "sub-JND mutants that changed nothing are excluded, not padded in")
 
     m4 = brk[brk["protocol_id"] == "M4"]
     if len(m4):

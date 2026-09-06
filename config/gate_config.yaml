@@ -1,15 +1,23 @@
-# Acceptance Gate v2 thresholds -- PROVISIONAL until 03_run_stress_test.py
-# calibrates them. Freeze this file (git commit) before the main 5k run and
-# never touch it again mid-experiment.
-height_tol_px: 2
-text_ratio_min: 0.995
-iou_mean_min: 0.95
-center_shift_max_px: 5
-deltae_p95_max: 2.0
-deltae_max: 5.0
+# Acceptance Gate v2 thresholds -- CALIBRATED by the mutation stress test (steps 03+04).
+# Do not edit by hand after the freeze commit.
+# frozen_policy: strict
+# frozen_at_utc: 2026-09-06T01:36:01+00:00
+# git_commit: cb99ddf
+# calibration_sources: ['webcode2m']
+# stress_csv_sha256: {'webcode2m': '49203c8caeef9ae0'}
+# n_breaking: 1206
+# n_safe: 564
+# n_safe_constraining: 184
+# target_recall: 0.99
+# slack: 1.25
+# composite_recall: 0.9917
+# composite_fpr: 0.0443
+height_tol_px: 1
+text_ratio_min: 0.9995
+iou_mean_min: 0.995
+center_shift_max_px: 1.0
+deltae_p95_max: 0.5
+deltae_max: 1.0
 require_token_reduction: true
-# Perceptual soft gate (needs: pip install torch lpips). Off by default so
-# Day 1 has no torch dependency; turn on after the stress test if the hard
-# gates alone miss breakages.
 use_lpips: false
-lpips_max: 0.03
+lpips_max: 0.005

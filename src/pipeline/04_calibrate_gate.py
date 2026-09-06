@@ -32,8 +32,8 @@ with the loosest thresholds; if none qualifies, the best one is reported
 with the slipping mutation classes named, so the gap is actionable.
 
 Usage:
-    python src/pipeline/04_calibrate_gate.py --source webcode2m
-    python src/pipeline/04_calibrate_gate.py --source webcode2m --freeze
+    python src/pipeline/04_calibrate_gate.py
+    python src/pipeline/04_calibrate_gate.py --freeze
 """
 from __future__ import annotations
 
@@ -119,6 +119,26 @@ def metric_scores(df: pd.DataFrame) -> dict:
     return {name: fn(df).astype(float) for name, fn, *_ in METRICS}
 
 
+def pixel_identical_mask(df: pd.DataFrame) -> pd.Series:
+    """Samples whose two renders are byte-identical.
+
+    gate.py short-circuits these to ACCEPT: identical rasters mean identical
+    appearance, and every gate metric is DOM-derived, so a metric can move
+    when nothing on screen did (a transparent or same-coloured block widening
+    over empty space shifts its box centre by hundreds of pixels while the
+    render is unchanged). Calibration has to model the gate that actually
+    ships, so the same rule is applied here. Prefers the gate's own
+    `pixel_identical` column and falls back to the runner's pixel diff for
+    CSVs written before that column existed."""
+    if "pixel_identical" in df.columns:
+        m = df["pixel_identical"]
+        if m.notna().any():
+            return m.astype(str).str.lower().isin(["true", "1"])
+    if "n_diff_pixels" in df.columns:
+        return pd.to_numeric(df["n_diff_pixels"], errors="coerce").fillna(-1) == 0
+    return pd.Series(False, index=df.index)
+
+
 def composite_reject(df: pd.DataFrame, thr: dict, use_lpips: bool) -> pd.Series:
     """Re-evaluate the layered visual gate at arbitrary thresholds."""
     S = metric_scores(df)
@@ -128,7 +148,10 @@ def composite_reject(df: pd.DataFrame, thr: dict, use_lpips: bool) -> pd.Series:
             continue
         v = S[name]
         rej = rej | (v > thr[name]).fillna(False)
-    return rej
+    # Soundness rule (see gate.evaluate_pair): an unchanged raster cannot be
+    # rejected, whatever the DOM-derived metrics say. Never suppresses a real
+    # detection -- a mutant that changed zero pixels broke zero pixels.
+    return rej & ~pixel_identical_mask(df)
 
 
 def thresholds_from_cfg(cfg: dict) -> dict:
@@ -271,9 +294,21 @@ def main() -> None:
     # ---------------- composite policies ----------------------------------
     policies = {"provisional": thresholds_from_cfg(cfg)}
     safe_df = calib[y == 0]
+    # safe_max asks "how loose can a threshold be and still clear every safe
+    # sample?" -- but a pixel-identical sample is cleared by the soundness
+    # rule regardless of its metrics, so letting it set the bound imports the
+    # very DOM artifact the rule exists to neutralise (a 599px centre shift on
+    # a byte-identical render). Only safe samples that COULD be rejected
+    # constrain the threshold; if none remain, this data cannot bound the
+    # metric from above and safe_max degenerates to the floor -- which is the
+    # honest answer, not a tight gate earned by evidence.
+    ident = pixel_identical_mask(calib).to_numpy()
+    constraining = (y == 0) & ~ident
+    n_constraining = int(constraining.sum())
     t_safe_max, t_strict = {}, {}
     for name, _fn, _g, _k, _t, floor in METRICS:
-        smax = float(np.nanmax(S[name][y == 0])) if S[name][y == 0].notna().any() else 0.0
+        col = S[name][constraining]
+        smax = float(np.nanmax(col)) if col.notna().any() else 0.0
         t_safe_max[name] = max(floor, smax * args.slack)
         t_strict[name] = floor
     policies["safe_max"] = t_safe_max
@@ -361,14 +396,13 @@ def main() -> None:
     calib_csv = rep / "csv" / "gate_calibration.csv"
     pd.DataFrame(rows).to_csv(calib_csv, index=False)
 
-    _figures(figs, roc_store, det_rows, calib, y, frozen_rej, ssim_best)
-
     prov = {"frozen_policy": frozen,
             "frozen_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "git_commit": git_commit(),
             "calibration_sources": sources,
             "stress_csv_sha256": csv_hashes,
             "n_breaking": n_brk, "n_safe": n_safe,
+            "n_safe_constraining": n_constraining,
             "target_recall": args.target, "slack": args.slack,
             "composite_recall": round(composite_recall, 4),
             "composite_fpr": round(comp[frozen]["fpr"], 4)}
@@ -386,9 +420,23 @@ def main() -> None:
                   det_rows, r1, r2, finds, duds, probe, prov, calib, y,
                   frozen_rej)
 
+    # Figures last and non-fatally: they are a deliverable, but an optional
+    # plotting dependency must never cost you the frozen config or the
+    # decisions log (both already written above).
+    fig_err = None
+    try:
+        _figures(figs, roc_store, det_rows, calib, y, frozen_rej, ssim_best)
+    except ImportError as e:  # noqa: BLE001
+        fig_err = f"{e} -- run: pip install matplotlib, then re-run step 04"
+    except Exception as e:  # noqa: BLE001
+        fig_err = repr(e)
+
     print(f"[04] wrote {calib_csv}")
-    print(f"[04] wrote {figs}/roc_grid.png, detection_heatmap.png, "
-          f"severity_curves.png")
+    if fig_err:
+        print(f"[04] FIGURES SKIPPED: {fig_err}")
+    else:
+        print(f"[04] wrote {figs}/roc_grid.png, detection_heatmap.png, "
+              f"severity_curves.png")
     print(f"[04] wrote config/gate_config.calibrated.yaml "
           f"(policy={frozen}, recall={composite_recall:.3f}, "
           f"fpr={comp[frozen]['fpr']:.3f})")
@@ -532,6 +580,53 @@ def _decisions_md(path, args, comp, frozen, qualifying, det_rows, r1, r2,
         mark = " **<- frozen**" if p == frozen else ""
         L.append(f"| {p}{mark} | {c['recall']:.3f} | [{lo:.3f}, {hi:.3f}] "
                  f"| {c['fpr']:.3f} |")
+    n_con = prov.get("n_safe_constraining", prov["n_safe"])
+    n_ident = prov["n_safe"] - n_con
+    if n_con == 0:
+        L.append(f"\n> **False-rejection is not measured on this set.** All "
+                 f"{prov['n_safe']} verified-safe samples render pixel-"
+                 f"identically and are accepted by the soundness rule "
+                 f"regardless of thresholds, so none could be rejected at all. "
+                 f"A false-rejection of 0.000 is true by construction, not "
+                 f"evidence that the thresholds are well placed, and "
+                 f"`safe_max` degenerates to the floors because nothing bounds "
+                 f"the metrics from above. Add safe mutants that change pixels "
+                 f"below the perceptual JND (e.g. a dE00~0.5 recolour) to give "
+                 f"this axis information.")
+    elif n_ident:
+        L.append(f"\n> **Basis of the false-rejection column.** {n_ident} of "
+                 f"{prov['n_safe']} verified-safe samples render pixel-"
+                 f"identically and are accepted by the soundness rule at any "
+                 f"threshold, so they cannot contribute false rejections. "
+                 f"Every rejection in the column above therefore comes from "
+                 f"the {n_con} sub-JND samples that DO change pixels, but the "
+                 f"rate is reported over all {prov['n_safe']} negatives, so it "
+                 f"is diluted by a factor of about "
+                 f"{prov['n_safe'] / max(n_con, 1):.1f}. Read it against the "
+                 f"constraining class instead: see the sub-JND acceptance rate "
+                 f"below, which uses {n_con} as its denominator. Quote "
+                 f"whichever you mean, and say which.")
+    if "intent" in calib.columns:
+        tmask = (calib["intent"] == "tolerable").to_numpy()
+        n_tol = int(tmask.sum())
+        if n_tol:
+            rej = np.asarray(frozen_rej)[tmask]
+            acc = 1.0 - float(rej.mean())
+            L.append("\n### Sub-JND negatives (the constraining class)\n")
+            L.append(f"{n_tol} pixel-DIFFERENT but imperceptible mutants; "
+                     f"accepted at frozen thresholds: **{acc:.3f}**. Pixel-"
+                     f"identical negatives are accepted by the soundness rule "
+                     f"at any threshold, so these are the only samples able to "
+                     f"reject -- they alone bound every threshold from above.")
+            if "severity_achieved" in calib.columns:
+                sev = pd.to_numeric(calib.loc[tmask, "severity_achieved"],
+                                    errors="coerce")
+                if sev.notna().any():
+                    L.append(f"\nMax achieved dE00 = {sev.max():.2f} "
+                             f"(JND ~= 1.0), recorded per sample, so the "
+                             f"imperceptibility claim is bounded by "
+                             f"construction and auditable rather than "
+                             f"asserted.")
     if not qualifying:
         L.append(f"\n**No policy reached the {args.target:.0%} recall "
                  f"target.** Slipping classes (frozen thresholds):")
