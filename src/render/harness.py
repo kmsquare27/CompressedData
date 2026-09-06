@@ -113,6 +113,96 @@ EXTRACT_JS = """
 """
 
 
+# ---------------------------------------------------------------------------
+# In-page render-invariance ORACLE (shared by Level 2's edit prescreen and
+# Level 3). Snapshots every element's ink-relevant computed style, its
+# border-box rect (1/64px, Chromium's layout unit), generated ::before/
+# ::after/::marker styles and the document scroll size; compare() diffs the
+# current page against the stored baseline WITHOUT a render.
+#
+# Soundness direction: if nothing in the snapshot changed, the paint is
+# (barring engine bugs) unchanged. If something changed, the paint may or
+# may not have -- so the oracle is a cheap PRE-FILTER; the render gate stays
+# the arbiter. Properties that never paint in a static capture (cursor,
+# pointer-events, user-select, transition/animation -- frozen by FREEZE_CSS
+# anyway, scroll behaviour, ...) are excluded, otherwise removing
+# `cursor:pointer` would register as a change. innerText is deliberately NOT
+# part of the snapshot: text in visibility:hidden or clipped-away elements is
+# in innerText but not on screen, and removing it must not be flagged here.
+# Elements are keyed by data-mut-id when stamped (Level 2: elements may
+# legitimately disappear), else by document-order index (Level 3: DOM fixed).
+ORACLE_JS = """
+() => {
+  if (window.__oracle) return true;
+  const SKIP = new Set(["cursor","pointer-events","user-select","-webkit-user-select",
+    "touch-action","will-change","scroll-behavior","caret-color","resize",
+    "-webkit-tap-highlight-color","-webkit-user-drag","-webkit-user-modify",
+    "print-color-adjust","-webkit-print-color-adjust","speak","-webkit-text-size-adjust",
+    "text-size-adjust","overscroll-behavior","overscroll-behavior-x","overscroll-behavior-y",
+    "overscroll-behavior-block","overscroll-behavior-inline","-webkit-locale","content-visibility"]);
+  const skip = p => SKIP.has(p) || p.startsWith("transition") || p.startsWith("animation") ||
+                    p.startsWith("scroll-") || p.startsWith("view-transition") ||
+                    p.startsWith("-webkit-overflow-scrolling");
+  const sig = cs => {
+    const parts = [];
+    for (let i = 0; i < cs.length; i++) {
+      const p = cs[i]; if (skip(p)) continue;
+      parts.push(p + ":" + cs.getPropertyValue(p));
+    }
+    return parts.join(";");
+  };
+  const q = v => Math.round(v * 64) / 64;
+  const rect = el => { const r = el.getBoundingClientRect();
+                       return q(r.x) + "," + q(r.y) + "," + q(r.width) + "," + q(r.height); };
+  const key = (el, i) => (el.hasAttribute && el.hasAttribute("data-mut-id"))
+                         ? "m" + el.getAttribute("data-mut-id") : "i" + i;
+  const snap = () => {
+    const els = [document.documentElement, document.body,
+                 ...document.querySelectorAll("body *")];
+    const m = new Map();
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i]; if (!el) continue;
+      const cs = getComputedStyle(el);
+      let s = rect(el) + "|" + sig(cs);
+      for (const pe of ["::before", "::after"]) {
+        const pcs = getComputedStyle(el, pe);
+        const c = pcs.getPropertyValue("content");
+        if (c !== "none" && c !== "normal" && c !== "") s += "|" + pe + sig(pcs);
+      }
+      if (cs.display === "list-item") s += "|::marker" + sig(getComputedStyle(el, "::marker"));
+      m.set(key(el, i), s);
+    }
+    m.set("#doc", document.documentElement.scrollWidth + "x" +
+                  document.documentElement.scrollHeight);
+    return m;
+  };
+  const firstDiff = (a, b) => {
+    const A = a.split(";"), B = b.split(";");
+    for (let i = 0; i < Math.max(A.length, B.length); i++)
+      if (A[i] !== B[i]) return (A[i] || "") + " -> " + (B[i] || "");
+    return "?";
+  };
+  let base = null;
+  window.__oracle = {
+    baseline() { base = snap(); return base.size; },
+    compare() {
+      if (!base) return { nDiff: -1, first: "no baseline", missing: [], added: [] };
+      const cur = snap();
+      let nDiff = 0, first = "";
+      const missing = [], added = [];
+      for (const [k, v] of cur) {
+        if (!base.has(k)) { added.push(k); continue; }
+        if (base.get(k) !== v) { nDiff++; if (!first) first = k + ": " + firstDiff(base.get(k), v); }
+      }
+      for (const k of base.keys()) if (!cur.has(k)) missing.push(k);
+      return { nDiff: nDiff, first: first.slice(0, 200), missing: missing, added: added };
+    }
+  };
+  return true;
+}
+"""
+
+
 def _placeholder_png_bytes() -> bytes:
     buf = io.BytesIO()
     Image.new("RGB", (2, 2), (204, 204, 204)).save(buf, format="PNG")
@@ -190,6 +280,17 @@ class RenderHarness:
         layout = self.extract_layout()
         self.screenshot(out_png)
         return layout
+
+    # -- in-page oracle (see ORACLE_JS) ---------------------------------------
+    def oracle_baseline(self) -> int:
+        """Install the oracle on the loaded page and snapshot it as baseline.
+        Returns the number of snapshotted elements."""
+        self.page.evaluate(ORACLE_JS)
+        return int(self.page.evaluate("() => window.__oracle.baseline()"))
+
+    def oracle_compare(self) -> dict:
+        """{nDiff, first, missing, added} of the current page vs baseline."""
+        return self.page.evaluate("() => window.__oracle.compare()")
 
     # -- lifecycle ------------------------------------------------------------
     def close(self) -> None:
