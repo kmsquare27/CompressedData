@@ -135,11 +135,11 @@ ORACLE_JS = """
 () => {
   if (window.__oracle) return true;
   const SKIP = new Set(["cursor","pointer-events","user-select","-webkit-user-select",
-    "touch-action","will-change","scroll-behavior","caret-color","resize",
+    "touch-action","scroll-behavior","caret-color",
     "-webkit-tap-highlight-color","-webkit-user-drag","-webkit-user-modify",
     "print-color-adjust","-webkit-print-color-adjust","speak","-webkit-text-size-adjust",
     "text-size-adjust","overscroll-behavior","overscroll-behavior-x","overscroll-behavior-y",
-    "overscroll-behavior-block","overscroll-behavior-inline","-webkit-locale","content-visibility"]);
+    "overscroll-behavior-block","overscroll-behavior-inline","-webkit-locale"]);
   const skip = p => SKIP.has(p) || p.startsWith("transition") || p.startsWith("animation") ||
                     p.startsWith("scroll-") || p.startsWith("view-transition") ||
                     p.startsWith("-webkit-overflow-scrolling");
@@ -170,6 +170,8 @@ ORACLE_JS = """
         if (c !== "none" && c !== "normal" && c !== "") s += "|" + pe + sig(pcs);
       }
       if (cs.display === "list-item") s += "|::marker" + sig(getComputedStyle(el, "::marker"));
+      for (const pe of ["::first-letter", "::first-line"]) s += "|" + pe + sig(getComputedStyle(el, pe));
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") s += "|::placeholder" + sig(getComputedStyle(el, "::placeholder"));
       m.set(key(el, i), s);
     }
     m.set("#doc", document.documentElement.scrollWidth + "x" +
@@ -259,7 +261,10 @@ class RenderHarness:
     def load(self, html_path) -> None:
         uri = Path(html_path).resolve().as_uri()
         self.page.goto(uri, wait_until="load", timeout=30000)
-        self.page.add_style_tag(content=FREEZE_CSS)
+        freeze = self.page.add_style_tag(content=FREEZE_CSS)
+        # Tag it: Level 3 must map the page's OWN <style> elements to the
+        # source blocks and leave this one alone (and active).
+        freeze.evaluate("e => e.setAttribute('data-harness-freeze', '')")
         try:
             self.page.evaluate("() => document.fonts ? document.fonts.ready : true")
         except Exception:
