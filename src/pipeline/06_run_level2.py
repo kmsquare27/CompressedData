@@ -60,7 +60,14 @@ from src.stress import annotate  # noqa: E402
 from src.stress.mutations import parse_css_color  # noqa: E402
 from src.stress.annotate import STAMP_ATTR  # noqa: E402
 
-NEVER_TOUCH = {"HTML", "BODY", "HEAD", "SCRIPT", "STYLE", "TITLE", "META"}
+NEVER_TOUCH = {"HTML", "BODY", "HEAD", "SCRIPT", "STYLE", "TITLE", "META",
+               # zero-area by geometry but load-bearing by layout: a <br>
+               # breaks a line, <col> sizes a column, <option>/<source>/
+               # <track>/<param> belong to an atomic parent. Every one used
+               # to be proposed as "invisible", rejected by the render gate,
+               # and paid for in bisection budget.
+               "BR", "WBR", "COL", "COLGROUP", "OPTION", "OPTGROUP",
+               "SOURCE", "TRACK", "PARAM"}
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +107,10 @@ def invisible_roots(meta) -> list[int]:
 
     dead = set()
     for e in meta.in_doc_order():
-        if e["tag"] in NEVER_TOUCH:
+        if e["tag"] in NEVER_TOUCH or e.get("inSvg"):
+            # SVG interiors: <defs>, <clipPath>, <linearGradient> are
+            # zero-area yet referenced by url(#id); the <svg> root itself is
+            # atomic and still a candidate when display:none.
             continue
         gone = e["displayNone"] or not has_paintable(e["id"])
         if gone:
@@ -131,6 +141,7 @@ def neutral_wrappers(meta, skip: set[int]) -> list[int]:
         bg = parse_css_color(e["bg"])
         want_display = "block" if e["tag"] == "DIV" else "inline"
         return (e["tag"] in ("DIV", "SPAN") and not e["displayNone"]
+                and not e.get("inSvg") and not e.get("wrapperHazard")
                 and e["nChildNodes"] >= 1
                 and e["leafTextLen"] == 0
                 and sum(e["pad"]) == 0 and sum(e["mar"]) == 0
@@ -165,7 +176,7 @@ def apply_edits(stamped_html: str, edits: list[tuple[str, int]]) -> str:
     only to map browser ids onto soup nodes and must not reach the artifact
     (they would also inflate the token count they are meant to help reduce).
     """
-    soup = BeautifulSoup(stamped_html, HTML_PARSER)
+    soup = BeautifulSoup(stamped_html, HTML_PARSER)      
     index = {}
     for el in soup.find_all(attrs={STAMP_ATTR: True}):
         index[int(el[STAMP_ATTR])] = el
@@ -216,7 +227,9 @@ class Resolver:
         art = render_page(self.h, p, self.work / f"{self.pid}__cand.png", self.tk)
         R = evaluate_pair(self.art_base, art, self.cfg, page_id=self.pid)
         ok = bool(R["accepted"])
-        if ok and len(edits) >= len(self.best):
+        # The objective is tokens, not edit count: ten wrapper collapses can
+        # be worth less than one hidden-menu removal.
+        if ok and (self.best_R is None or R["tokens_comp"] < self.best_R["tokens_comp"]):
             self.best, self.best_R = list(edits), R
         return ok, R
 
@@ -305,17 +318,30 @@ def run_source(source, args, harness, cfg, tk):
         sp = out_dir / f"{pid}__stamped.html"
         sp.write_text(stamped, encoding="utf-8")
         try:
-            art_base = render_page(harness, sp, work / f"{pid}__base.png", tk)
+            # REFERENCE = render of the ORIGINAL file. Two reasons:
+            #  (1) the stamped file is a BeautifulSoup round-trip of the base
+            #      (str(soup)); validating against ITS render would validate
+            #      against a rewritten page, not the original;
+            #  (2) when composing on Level 1, gating against the original
+            #      means L1's and L2's tolerances cannot accumulate -- the
+            #      stacked artifact is held to ONE budget against the truth.
+            # G1 (token reduction) is still measured against the base file
+            # L2 edits, so `tokens_orig` keeps its "relative to the base"
+            # semantics; `tokens_original` is added for step 07.
+            art_ref = render_page(harness, Path(r["html_path"]),
+                                  work / f"{pid}__orig.png", tk)
+            tokens_original = art_ref.tokens
+            art_ref.html_text = base_html
+            art_ref.tokens = tk.count(base_html)
+            art_st = render_page(harness, sp, work / f"{pid}__stamped.png", tk)
             meta = annotate.collect_meta(harness)
         except Exception as e:  # noqa: BLE001
             rows.append({**row, "status": f"page_error: {e}"}); continue
-
-        # The render is of the stamped page (stamps do not paint -- the
-        # hazard check above guarantees no [data- selectors), but tokens must
-        # be counted on the REAL html, or the baseline is inflated by the
-        # stamps and every reduction looks better than it is.
-        art_base.html_text = base_html
-        art_base.tokens = tk.count(base_html)
+        art_base = art_ref
+        row["stamp_roundtrip_identical"] = (
+            bool(art_st.img.shape == art_ref.img.shape
+                 and (art_st.img == art_ref.img).all())
+            if base_from == "original" else None)
 
         removals = invisible_roots(meta)
         skip = set(removals)
@@ -324,10 +350,35 @@ def run_source(source, args, harness, cfg, tk):
                  + [("collapse", i) for i in collapses])
         row.update({"n_invisible": len(removals), "n_wrappers": len(collapses),
                     "n_candidate_edits": len(edits),
-                    "tokens_base": art_base.tokens})
+                    "tokens_base": art_base.tokens,
+                    "tokens_original": tokens_original})
         if not edits:
             rows.append({**row, "status": "no_candidates", "accepted": False,
                          "reduction_pct": 0.0}); continue
+
+        # PRESCREEN on the loaded stamped page: no renders. Only edits the
+        # oracle cannot distinguish from a no-op reach the render gate; the
+        # rest are recorded with the first differing property/rect. When the
+        # oracle is unavailable the full list is gated as before.
+        pre = annotate.prescreen_edits(harness, edits)
+        pre_by = {(p["kind"], p["id"]): p for p in (pre or [])}
+        if pre is not None:
+            gated = [e for e in edits if pre_by.get(e, {}).get("ok")]
+        else:
+            gated = list(edits)
+        row.update({"prescreen_ran": pre is not None,
+                    "n_prescreen_dropped": len(edits) - len(gated)})
+        if not gated:
+            rows.append({**row, "status": "all_edits_rejected",
+                         "accepted": False, "reduction_pct": 0.0,
+                         "gate_calls": 0})
+            for kind, eid in edits:
+                edit_rows.append({"page_id": pid, "kind": kind, "el_id": eid,
+                                  "prescreen_ok": False,
+                                  "prescreen_first": pre_by.get((kind, eid), {}).get("first", ""),
+                                  "kept": False, "blacklisted": False})
+            continue
+        edits = gated
 
         res = Resolver(pid, stamped, art_base, cfg, harness, tk,
                        out_dir, work, args.budget)
@@ -357,8 +408,12 @@ def run_source(source, args, harness, cfg, tk):
                      "tokens_saved_invisible": art_base.tokens - t_rm,
                      "tokens_saved_wrappers": art_base.tokens - t_cl,
                      **{k: v for k, v in R.items() if k != "page_id"}})
-        for kind, eid in edits:
+        for kind, eid in ([("remove", i) for i in removals]
+                          + [("collapse", i) for i in collapses]):
+            p = pre_by.get((kind, eid), {})
             edit_rows.append({"page_id": pid, "kind": kind, "el_id": eid,
+                              "prescreen_ok": bool(p.get("ok", True)),
+                              "prescreen_first": p.get("first", ""),
                               "kept": (kind, eid) in kept,
                               "blacklisted": (kind, eid) in res.blacklist})
 
@@ -400,9 +455,19 @@ def summarize(csv_path, source):
     if "n_candidate_edits" in ok:
         cand = pd.to_numeric(ok["n_candidate_edits"], errors="coerce")
         kept = pd.to_numeric(ok["n_kept"], errors="coerce")
+        drop = pd.to_numeric(ok.get("n_prescreen_dropped"), errors="coerce").fillna(0)
         print(f"\nedits kept: {int(kept.sum())}/{int(cand.sum())} "
               f"({100 * kept.sum() / max(cand.sum(), 1):.1f}%)  "
-              f"-- the rest blacklisted by bisection")
+              f"-- {int(drop.sum())} dropped by the in-page prescreen (no "
+              f"render), the rest blacklisted by bisection")
+        if "gate_calls" in ok:
+            capped = (pd.to_numeric(ok["gate_calls"], errors="coerce") >= 40).sum()
+            print(f"pages at the 40-call ceiling: {int(capped)}")
+    if "stamp_roundtrip_identical" in d:
+        s = d["stamp_roundtrip_identical"].dropna()
+        if len(s):
+            print(f"stamped round-trip pixel-identical to original: "
+                  f"{int(s.astype(bool).sum())}/{len(s)}  (was never checked before)")
         print(f"gate calls per page: median "
               f"{pd.to_numeric(ok['gate_calls']).median():.0f} "
               f"(whole-page-only would have been 1, and would have lost "
