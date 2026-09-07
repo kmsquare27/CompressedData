@@ -7,10 +7,10 @@ produces the edit list Level 3 WOULD apply; this script only measures it.
 
 Everything here is a PROPOSED removal candidate: what the planner would
 emit, before the in-page oracle, before the render gate. Chars are exact
-(source spans minus replacement text). Tokens are exact deltas too:
-T(page) - T(page with that bucket's edits applied), and the total is
-T(page) - T(page with all edits), so per-bucket tokens need not sum to the
-total (tokenization interacts). <link rel=stylesheet> markup is HTML, not
+(source spans minus replacement text). Bucket, CSS-subtotal and total tokens
+are whole-page deltas: T(page) - T(page with those edits applied); bucket
+deltas need not sum to the subtotal (tokenization interacts). The optional
+--ablate/--merge figures are deltas on the CSS text alone. <link rel=stylesheet> markup is HTML, not
 CSS, and is reported separately from the CSS percentages. Two denominators
 are printed: measured pages, and ALL input pages (pages without <style>
 blocks count with their real page tokens; failed pages count at 0 and are
@@ -121,14 +121,14 @@ def main() -> None:
             except Exception as e:  # noqa: BLE001
                 rows.append({**row, "status": f"page_error: {e}"}); continue
 
-            def proposed_html(bucket_filter=None) -> str:
+            def proposed_html(bucket_filter=None, css_only=False) -> str:
                 per = [[] for _ in blocks]
                 for bucket, lst in per_bucket_edits.items():
                     if bucket_filter is None or bucket == bucket_filter:
                         for bi, e in lst:
                             per[bi].append(e)
                 out = L3.splice_blocks(html, blocks, [L3.apply_edits(c, eds) for c, eds in zip(css_all, per)])
-                if bucket_filter in (None, "link_remote"):
+                if bucket_filter in (None, "link_remote") and not css_only:
                     spans = L3.remote_link_edits(out)
                     for a, b in sorted(spans, reverse=True):
                         out = out[:a] + out[b:]
@@ -143,7 +143,10 @@ def main() -> None:
                               "n_edits": len(lst)})
                 row[f"chars_{bucket}"] = chars; row[f"tokens_{bucket}"] = toks
                 if bucket in CSS_BUCKETS:
-                    css_chars += chars; css_tokens += toks
+                    css_chars += chars
+            # one whole-page delta for all CSS edits together (bucket deltas
+            # need not sum); links excluded
+            css_tokens = t_page - tk.count(proposed_html(None, css_only=True)) if per_bucket_edits else 0
             if link_spans:
                 lc = sum(b - a for a, b in link_spans)
                 lt = t_page - tk.count(proposed_html("link_remote"))
@@ -247,7 +250,7 @@ def main() -> None:
     if "planned_edits_oracle_ok" in ok:
         po = ok["planned_edits_oracle_ok"].dropna()
         print(f"planned edit lists passing the in-page oracle whole: {int(po.astype(bool).sum())}/{len(po)}"
-              f"  (failures are classification bugs: see planned_edits_oracle_first)")
+              f"  (failures: oracle-rejected edits needing investigation, see planned_edits_oracle_first)")
     if "tokens_decl_ablation" in ok:
         a = ok["tokens_decl_ablation"].fillna(0).sum()
         print(f"second-order, oracle-passed (--ablate): {int(a):,} tokens = "

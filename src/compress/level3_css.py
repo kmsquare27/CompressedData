@@ -732,7 +732,15 @@ def level3_page(harness, html: str, opts: dict) -> dict:
     blocks = find_style_blocks(html)
     out = {"status": "ok", "n_blocks": len(blocks)}
     if not blocks:
-        return {**out, "status": "no_css", "html": html}
+        new_html, spans = html, []
+        if opts.get("drop_remote_links", True):
+            spans = remote_link_edits(html)
+            for a, b in sorted(spans, reverse=True):
+                new_html = new_html[:a] + new_html[b:]
+        return {**out, "status": "ok" if spans else "no_css", "html": new_html,
+                "n_edits_planned": len(spans), "n_edits_kept": len(spans), "oracle_calls": 0,
+                "blacklist": [], "css_chars_before": 0, "css_chars_after": 0,
+                "buckets_chars": {"link_remote": sum(b - a for a, b in spans)} if spans else {}}
 
     dom_texts = harness.page.evaluate(GET_STYLES_JS)
     if len(dom_texts) != len(blocks) or any(d != b.css for d, b in zip(dom_texts, blocks)):
@@ -794,22 +802,41 @@ def level3_page(harness, html: str, opts: dict) -> dict:
 
 
 def resolve_base(ROOT, src, pid, r, prefer: str, final_df, sel_df):
-    """(path, label). prefer: 'final' -> step 08 frozen target, else 07's
-    selected artifact, else the original; 'selected' skips 08; 'original'."""
+    """(path, label). prefer='final': step 08's entry for this page decides,
+    INCLUDING an 'original' entry (08 may have rejected every compressed
+    rung; the training target is then the original and L3 must start
+    there). A page with no step-08 entry falls back to step 07's selection
+    with the reason in the label; 'selected' skips 08; 'original' uses the
+    raw file. The frozen target's recorded hash is verified when present."""
+    import hashlib
     from pathlib import Path
     if prefer == "original":
         return Path(r["html_path"]), "original"
-    if prefer == "final" and final_df is not None and pid in final_df.index:
-        row = final_df.loc[pid]
-        p = Path(str(row.get("html_path", "")))
-        if str(row.get("level", "original")) != "original" and p.exists():
-            return p, "final:" + str(row["level"])
+    if prefer == "final":
+        if final_df is not None and pid in final_df.index:
+            row = final_df.loc[pid]
+            lvl = str(row.get("level", "original"))
+            p = Path(str(row.get("html_path", "")))
+            if lvl == "original":
+                return Path(r["html_path"]), "final:original"
+            if p.exists():
+                want = str(row.get("final_sha256", "") or "")
+                if want and want != "nan":
+                    got = hashlib.sha256(p.read_bytes()).hexdigest()
+                    if got != want:
+                        raise ValueError(f"step-08 target {p.name} hash mismatch "
+                                         f"(file changed since validation)")
+                return p, "final:" + lvl
+            raise FileNotFoundError(f"step-08 target missing: {p}")
+        note = " (no step-08 entry)" if final_df is not None else " (no step-08 run)"
+    else:
+        note = ""
     if sel_df is not None and pid in sel_df.index:
         row = sel_df.loc[pid]
         p = Path(str(row.get("html_path", "")))
         if str(row.get("level", "original")) != "original" and p.exists():
-            return p, "selected:" + str(row["level"])
-    return Path(r["html_path"]), "original"
+            return p, "selected:" + str(row["level"]) + note
+    return Path(r["html_path"]), "original" + note
 
 
 def load_base_tables(ROOT, src):
