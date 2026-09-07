@@ -26,7 +26,10 @@ Output: outputs/renders_final/<source>/<id>.png        training screenshots
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import platform
+import shutil
 import sys
 from pathlib import Path
 
@@ -47,6 +50,9 @@ def main() -> None:
     ap.add_argument("--source", default="webcode2m")
     ap.add_argument("--strict", action="store_true",
                     help="require pixel identity instead of the frozen gate")
+    ap.add_argument("--repeat", action="store_true",
+                    help="render each original twice; a page whose two captures differ "
+                         "is marked unstable_original and excluded (repeatability evidence)")
     args = ap.parse_args()
     src = args.source
 
@@ -56,6 +62,10 @@ def main() -> None:
     render_dir.mkdir(parents=True, exist_ok=True)
     work = ROOT / "outputs" / "renders_gate" / src / "final"
     work.mkdir(parents=True, exist_ok=True)
+    # Byte-frozen copies of the validated targets: later re-runs of 02/06
+    # overwrite outputs/level*/, which must not change what was trained on.
+    target_dir = ROOT / "outputs" / "final_targets" / src
+    target_dir.mkdir(parents=True, exist_ok=True)
     cfg = load_config(ROOT / "config" / "gate_config.yaml")
     tk = TokenCounter.get()
     rows = []
@@ -71,6 +81,16 @@ def main() -> None:
             except Exception as e:  # noqa: BLE001
                 rows.append({**row, "status": f"failed_original: {e}"}); continue
             row["tokens_orig"] = art_o.tokens
+            row["original_sha256"] = hashlib.sha256(Path(orig_path).read_bytes()).hexdigest()
+            if args.repeat:
+                try:
+                    art_o2 = render_page(h, orig_path, work / f"{pid}_orig_repeat.png", tk)
+                    same = (art_o.img.shape == art_o2.img.shape and (art_o.img == art_o2.img).all())
+                except Exception as e:  # noqa: BLE001
+                    same = False; row["repeat_error"] = str(e)
+                row["original_repeat_identical"] = bool(same)
+                if not same:
+                    rows.append({**row, "status": "unstable_original"}); continue
             # Diagnostic: does the dataset screenshot even have the harness's size?
             try:
                 dp = str(r.get("dataset_png_path", ""))
@@ -106,10 +126,14 @@ def main() -> None:
                              **{k: R[k] for k in ("height_delta_px", "text_ratio", "iou_mean",
                                                   "center_shift_max", "deltae_max") if k in R}}
                     break
-            rows.append({**row, "status": "ok",
+            frozen = target_dir / f"{pid}.html"
+            shutil.copyfile(final["html_path"], frozen)
+            final_sha = hashlib.sha256(frozen.read_bytes()).hexdigest()
+            rows.append({**row, "status": "ok", "validated_source_path": final["html_path"],
+                         "final_sha256": final_sha,
                          "first_rung_passed": bool(first_ok) if first_ok is not None else None,
                          "rungs_tried": rung_tried,
-                         "final_level": final["level"], "html_path": final["html_path"],
+                         "final_level": final["level"], "html_path": str(frozen),
                          "png_path": str(render_dir / f"{pid}.png"),
                          "tokens_final": final["tokens"],
                          "reduction_pct": round(100.0 * (art_o.tokens - final["tokens"])
@@ -124,12 +148,25 @@ def main() -> None:
     out.to_csv(rep / f"final_validation_{src}.csv", index=False)
     ok = out[out["status"] == "ok"]
     man = ok[["page_id", "png_path", "html_path", "final_level", "tokens_orig",
-              "tokens_final", "reduction_pct"]].rename(columns={"final_level": "level"})
+              "tokens_final", "reduction_pct", "original_sha256", "final_sha256",
+              "validated_source_path"]].rename(columns={"final_level": "level"})
     man.insert(1, "source", src)
     man_csv = ROOT / "data" / "splits" / f"compressed_{src}_manifest.csv"
     man.to_csv(man_csv, index=False)
 
+    env = {"script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+           "python": sys.version, "platform": platform.platform(),
+           "browser": getattr(getattr(h, "browser", None), "version", None), "tokenizer": tk.name,
+           "gate_config": cfg, "strict": args.strict, "repeat": args.repeat}
+    try:
+        import importlib.metadata as im
+        env["playwright"] = im.version("playwright")
+    except Exception:  # noqa: BLE001
+        pass
+    (rep / f"final_validation_{src}_environment.json").write_text(json.dumps(env, indent=1, default=str))
+
     print(f"\n[08] ---- final validation against the original render: {src} ----")
+    print(f"status: {out['status'].value_counts().to_dict()}")
     if len(ok):
         fr = ok["first_rung_passed"].dropna()
         print(f"selected artifact passed as-is : {int(fr.astype(bool).sum())}/{len(fr)}  "
@@ -140,8 +177,14 @@ def main() -> None:
         print(f"final level                    : "
               f"{ok['final_level'].value_counts().to_dict()}")
         to, tf = ok["tokens_orig"].sum(), ok["tokens_final"].sum()
-        print(f"CORPUS-LEVEL token saving      : {100.0 * (to - tf) / max(to, 1):.2f}%  "
-              f"({int(to - tf):,} of {int(to):,}) -- validated")
+        print(f"token saving, validated pages  : {100.0 * (to - tf) / max(to, 1):.2f}%  "
+              f"({int(to - tf):,} of {int(to):,}) on {len(ok)} pages")
+        # A full-corpus claim counts every failed/unstable page at 0% saving.
+        n_bad = len(out) - len(ok)
+        if n_bad:
+            print(f"token saving, all {len(out)} inputs   : "
+                  f"~{100.0 * (to - tf) / max(to, 1) * len(ok) / len(out):.2f}%  "
+                  f"({n_bad} pages not validated, counted at 0%; the paper reports this one)")
         if "dataset_png_same_size" in ok:
             s = ok["dataset_png_same_size"].dropna()
             print(f"dataset screenshot same size as harness render: "

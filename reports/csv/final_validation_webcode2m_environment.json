@@ -1,0 +1,21 @@
+{
+ "script_sha256": "cb5f3fe5ad2f13b8eb05d4ddc30c1ebcec7a343671ac4b27a20a9820da5e1c0a",
+ "python": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
+ "platform": "Windows-11-10.0.26200-SP0",
+ "browser": "151.0.7922.34",
+ "tokenizer": "qwen2.5-vl",
+ "gate_config": {
+  "height_tol_px": 1,
+  "text_ratio_min": 0.9995,
+  "iou_mean_min": 0.995,
+  "center_shift_max_px": 1.0,
+  "deltae_p95_max": 0.5,
+  "deltae_max": 1.0,
+  "require_token_reduction": true,
+  "use_lpips": false,
+  "lpips_max": 0.005
+ },
+ "strict": false,
+ "repeat": false,
+ "playwright": "1.62.0"
+}

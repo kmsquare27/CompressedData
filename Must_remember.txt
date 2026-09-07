@@ -1,0 +1,23 @@
+Not worried about validity — mildly worried about one paper-design consequence.
+
+**Why 84/99 differ, and why that's expected.** The dataset's screenshot was captured under the dataset's conditions: real images loaded, remote CSS and web fonts fetched, whatever viewport and scale factor they used. The harness deliberately does none of that: images become 2×2 gray placeholders, remote assets are blocked, viewport is fixed at 1280 px. Every image that was 400 px tall in the original capture is now ~2 px tall, so the full-page height shrinks. Different height → different size. The 15 that match are almost certainly the image-free pages. Check it in one line — if the widths agree and only heights differ, it's exactly this:
+
+```python
+import pandas as pd
+d = pd.read_csv("reports/csv/final_validation_webcode2m.csv").dropna(subset=["dataset_png_size"])
+w = d.dataset_png_size.str.split("x").str[0] == d.harness_png_size.str.split("x").str[0]
+print(f"same width: {w.sum()}/{len(d)}   same size: {d.dataset_png_same_size.sum()}/{len(d)}")
+```
+
+If widths *also* differ, the dataset was captured at a different viewport, which changes nothing about validity but is worth one sentence in the paper.
+
+**What it means for validity: nothing.** Your equivalence proof is "compressed HTML renders identically to original HTML *under the harness*." The training image is the harness render of the original. Screenshot and target are produced under the same protocol; the proof covers exactly the pair the model sees. The dataset PNG isn't in the loop. This is why step 08 writes `png_path` = harness render — had you trained on the dataset PNG, you'd be pairing a compressed target with an image the proof never saw (the reviewer-facing limitation from the first analysis, now closed).
+
+**The thing to actually think about.** The harness render is a *degraded* page: gray boxes, fallback fonts. So your training distribution is (harness render → HTML), not (real screenshot → HTML). Two consequences you need to design around, not fix:
+
+1. **The baseline must be paired the same way.** Fine-tune the control model on (harness render → *original* HTML) and the treatment on (harness render → *compressed* HTML). Same images, only the targets differ — that isolates the effect of compression. If the control uses the dataset's real screenshots, you've confounded target format with image realism.
+2. **Evaluation has to be consistent with training.** Evaluate on harness renders of held-out pages (primary), and optionally on the real screenshots as a transfer test. Report both; don't mix them.
+
+State it once in the paper: "All training and evaluation images are produced by the same deterministic render harness; the dataset's own screenshots are not used, because visual equivalence is proven under the harness, not under the dataset's capture conditions." A reviewer who sees "15/99 same size" without that sentence will assume a bug; with it, it's a design choice.
+
+Two smaller notes from this run: `we00071` timed out at `Page.goto` (30 s) — raise the harness timeout or leave it at 0 % as the report already does, but check whether it also timed out in steps 02/06; and the 4 gate-passed-but-not-pixel-identical pages are the sub-JND cases — glance at their diff images once so you can describe them in one sentence.
