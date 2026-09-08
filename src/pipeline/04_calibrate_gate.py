@@ -148,6 +148,11 @@ def composite_reject(df: pd.DataFrame, thr: dict, use_lpips: bool) -> pd.Series:
             continue
         v = S[name]
         rej = rej | (v > thr[name]).fillna(False)
+    # G2 also rejects on a WIDTH mismatch (gate.py never resizes screenshots);
+    # none of the per-metric scores above are width-sensitive (height_delta is
+    # height-only), so it has to be pulled in separately.
+    if "shape_mismatch" in df.columns:
+        rej = rej | df["shape_mismatch"].astype(str).str.lower().isin(["true", "1"])
     # Soundness rule (see gate.evaluate_pair): an unchanged raster cannot be
     # rejected, whatever the DOM-derived metrics say. Never suppresses a real
     # detection -- a mutant that changed zero pixels broke zero pixels.
@@ -187,6 +192,29 @@ def git_commit() -> str:
         return "n/a"
 
 
+def _evaluate_frozen(calib: pd.DataFrame, y: np.ndarray, cfg: dict, use_lpips: bool,
+                     n_brk: int, source: str, rep: Path):
+    """Recall/FPR/per-family recall of config/gate_config.yaml AS-IS (no
+    rounding round-trip needed: values read straight from the frozen YAML
+    already ARE the saved representation) on the existing stress CSV."""
+    thr = thresholds_from_cfg(cfg)
+    rej = composite_reject(calib, thr, use_lpips)
+    rec = float(rej[y == 1].mean())
+    fpr_ = float(rej[y == 0].mean())
+    lo, hi = wilson(int(rej[y == 1].sum()), n_brk)
+    row = {"kind": "composite", "name": "frozen", "source": source,
+           "recall": round(rec, 4), "recall_ci_lo": round(lo, 4),
+           "recall_ci_hi": round(hi, 4), "fpr": round(fpr_, 4),
+           "thresholds": json.dumps({k: round(float(v), 5) for k, v in thr.items()})}
+    for fam, g in calib[y == 1].groupby("protocol_id"):
+        row[f"recall_{fam}"] = round(float(rej[g.index].mean()), 3)
+    for s, g in calib[y == 1].groupby("source"):
+        row[f"recall_src_{s}"] = round(float(rej[g.index].mean()), 3)
+    out_csv = rep / "csv" / f"gate_calibration_frozen_{source}.csv"
+    pd.DataFrame([row]).to_csv(out_csv, index=False)
+    return out_csv, row
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", choices=["webcode2m"], default="webcode2m")
@@ -198,6 +226,12 @@ def main() -> None:
                     help="exclude extension mutations (M8) from calibration")
     ap.add_argument("--freeze", action="store_true",
                     help="write config/gate_config.yaml")
+    ap.add_argument("--force", action="store_true",
+                    help="with --freeze, allow overwriting an existing config/gate_config.yaml")
+    ap.add_argument("--evaluate-frozen", action="store_true",
+                    help="load config/gate_config.yaml AS-IS and recompute recall/FPR on "
+                         "the existing stress CSV with that exact policy; writes "
+                         "gate_calibration_frozen_<src>.csv and changes nothing else")
     args = ap.parse_args()
 
     rep = ROOT / "reports"
@@ -234,6 +268,15 @@ def main() -> None:
     use_lpips = bool(cfg.get("use_lpips")) and \
         calib.get("lpips_max_tile") is not None and \
         pd.to_numeric(calib.get("lpips_max_tile"), errors="coerce").notna().any()
+
+    if args.evaluate_frozen:
+        out_csv, row = _evaluate_frozen(calib, y, cfg, use_lpips, n_brk,
+                                        args.source, rep)
+        print(f"[04] frozen policy on {args.source}: recall={row['recall']:.3f} "
+              f"[{row['recall_ci_lo']:.3f}, {row['recall_ci_hi']:.3f}]  "
+              f"fpr={row['fpr']:.3f}")
+        print(f"[04] wrote {out_csv}")
+        return
 
     S = metric_scores(calib)
     rows = []
@@ -315,7 +358,14 @@ def main() -> None:
     policies["strict"] = t_strict
 
     comp = {}
-    for pname, thr in policies.items():
+    for pname, raw_thr in policies.items():
+        # Recall/FPR must be evaluated against the SAVED representation --
+        # what config/gate_config.yaml will actually enforce -- not the raw
+        # floats: int(ceil(...)) and round(..., N) can shift a threshold
+        # enough to change which samples are (mis)classified. Round-tripping
+        # through cfg keys applies the exact same to_cfg() transform used to
+        # write the YAML, then maps back to metric-name keys.
+        thr = thresholds_from_cfg(cfg_from_thresholds(raw_thr, cfg))
         rej = composite_reject(calib, thr, use_lpips)
         rec = float(rej[y == 1].mean())
         fpr_ = float(rej[y == 0].mean())
@@ -410,11 +460,22 @@ def main() -> None:
     if use_lpips and r2.get("marginal_detections") == 0:
         new_cfg["use_lpips"] = False
     _write_yaml(ROOT / "config" / "gate_config.calibrated.yaml", new_cfg, prov)
+    freeze_refused = None
     if args.freeze:
-        _write_yaml(ROOT / "config" / "gate_config.yaml", new_cfg, prov)
-        print("[04] FROZE config/gate_config.yaml -- commit it now:")
-        print('     git add config/gate_config.yaml reports/ && '
-              'git commit -m "FREEZE gate thresholds after stress test"')
+        gate_yaml = ROOT / "config" / "gate_config.yaml"
+        if not qualifying:
+            freeze_refused = (f"no policy reached the target recall "
+                              f"{args.target:.0%} (best: {frozen} at "
+                              f"{composite_recall:.1%})")
+        elif gate_yaml.exists() and not args.force:
+            freeze_refused = f"{gate_yaml} already exists; pass --force to overwrite it"
+        if freeze_refused:
+            print(f"[04] REFUSING to freeze: {freeze_refused}")
+        else:
+            _write_yaml(gate_yaml, new_cfg, prov)
+            print(f"[04] FROZE {gate_yaml} -- commit it now:")
+            print('     git add config/gate_config.yaml reports/ && '
+                  'git commit -m "FREEZE gate thresholds after stress test"')
 
     _decisions_md(rep / "stress_decisions.md", args, comp, frozen, qualifying,
                   det_rows, r1, r2, finds, duds, probe, prov, calib, y,
@@ -446,6 +507,8 @@ def main() -> None:
         print(f"[04] WARNING: no policy reached recall >= {args.target}. "
               f"Slipping classes: "
               + ", ".join(f"{d['name']} ({d['rate']:.0%})" for d in miss))
+    if freeze_refused:
+        sys.exit(f"[04] --freeze refused: {freeze_refused}")
 
 
 # ---------------------------------------------------------------------------

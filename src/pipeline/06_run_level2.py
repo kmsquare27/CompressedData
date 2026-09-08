@@ -440,8 +440,15 @@ def summarize(csv_path, source):
     if len(red):
         print(f"reduction on accepted  mean {red.mean():.2f}%  "
               f"median {red.median():.2f}%  p90 {red.quantile(.9):.2f}%")
-        print(f"corpus-level (rejected count as 0%): "
+        print(f"page-average reduction (rejected count as 0%): "
               f"{red.sum() / max(len(d), 1):.2f}%")
+        # tokens_original is the TRUE original's count; tokens_orig (from the
+        # gate row) is relative to whatever base this page composed on, which
+        # understates the saving on L1->L2 stacked pages.
+        to = pd.to_numeric(d.get("tokens_original"), errors="coerce")
+        tc = pd.to_numeric(d.get("tokens_comp"), errors="coerce").fillna(to)
+        print(f"corpus-level token saving (rejected pages count as 0%): "
+              f"{100.0 * (to.sum() - tc.sum()) / max(to.sum(), 1):.2f}%")
     inv = pd.to_numeric(ok.get("tokens_saved_invisible"), errors="coerce").fillna(0)
     wrp = pd.to_numeric(ok.get("tokens_saved_wrappers"), errors="coerce").fillna(0)
     tot = max(inv.sum() + wrp.sum(), 1)
@@ -485,7 +492,17 @@ def main():
                     help="compose on Level 1 output when present (default)")
     ap.add_argument("--on-original", dest="on_level1", action="store_false",
                     help="run Level 2 on the original HTML instead")
+    ap.add_argument("--report-only", action="store_true",
+                    help="skip rendering; re-print the summary from the existing gate CSV")
     args = ap.parse_args()
+
+    rep = ROOT / "reports" / "csv"
+    out_csv = rep / f"level2_gate_{args.source}.csv"
+    if args.report_only:
+        if not out_csv.exists():
+            raise SystemExit(f"[06] --report-only needs {out_csv.name}; run without it first")
+        summarize(out_csv, args.source)
+        return
 
     cfg = load_config(ROOT / "config" / "gate_config.yaml")
     tk = TokenCounter.get()

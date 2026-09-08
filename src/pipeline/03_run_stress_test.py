@@ -198,6 +198,7 @@ def run_source(source: str, args, harness, cfg, tk) -> Path:
                              "attempts": max(0, attempt - 1)}); continue
 
             changed = annotate.visually_changed(pix)
+            html_changed = outcome.html != stamped
             status, vlabel, calib = classify(sp.intent, changed)
             # Last-attempt overshoot: the resample loop can exhaust attempts
             # with the screen still violated. Such a sample is NOT a verified
@@ -207,11 +208,18 @@ def run_source(source: str, args, harness, cfg, tk) -> Path:
             if (sp.intent == "tolerable" and changed and _cap
                     and pix["diff_frac"] > _cap):
                 status, vlabel, calib = "tolerable_reflow", 0, False
+            if not html_changed:
+                # The operator ran but produced byte-identical HTML (e.g. a
+                # serialization step silently undid the edit) -- not a
+                # verified anything; exclude from calibration rather than let
+                # it pollute a "safe" or dud a "breaking" count.
+                status, calib = "noop", False
             row.update({"status": status, "attempts": attempt,
                         "target_ids": ";".join(map(str, outcome.target_ids)),
                         "severity_nominal": outcome.severity_nominal,
                         "severity_achieved": outcome.severity_achieved,
                         "detail": outcome.detail,
+                        "html_changed": html_changed,
                         "verified_change": changed, "verified_label": vlabel,
                         "calib_include": calib, **pix})
 

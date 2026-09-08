@@ -47,12 +47,62 @@ def _check_minify_html():
                          "call fell back silently to defaults.")
 
 
+def summarize(stages_df: pd.DataFrame, out: pd.DataFrame, out_csv: Path, source: str) -> None:
+    print("\n[02] ---- Level 1 under the frozen gate, per stage ----")
+    for stage in ("l1a", "l1b"):
+        s = stages_df[(stages_df.get("stage") == stage) & (stages_df.get("status") == "ok")]
+        if not len(s):
+            continue
+        acc = s["accepted"].astype(bool)
+        red = pd.to_numeric(s.loc[acc, "reduction_pct"], errors="coerce")
+        pix = s["pixel_identical"].astype(bool).mean() if "pixel_identical" in s else float("nan")
+        print(f"{stage}: accepted {int(acc.sum())}/{len(s)}  pixel-identical "
+              f"{100 * pix:.0f}%  reduction on accepted mean "
+              f"{red.mean():.2f}% median {red.median():.2f}% p90 {red.quantile(.9):.2f}%")
+        rej = s[~acc]
+        if len(rej) and "center_shift_max" in rej:
+            cs = pd.to_numeric(rej["center_shift_max"], errors="coerce")
+            print(f"      rejected {len(rej)}: median centre shift {cs.median():.1f}px "
+                  f"(~4px = one collapsed inter-inline space), "
+                  f"G4 tripped on {int((~rej['g4_blocks'].astype(bool)).sum())}")
+    sel = out[out.get("status") == "ok"]
+    if len(sel):
+        acc = sel["accepted"].astype(bool)
+        red = pd.to_numeric(sel.loc[acc, "reduction_pct"], errors="coerce")
+        print(f"\nselected: accepted {int(acc.sum())}/{len(out)}  "
+              f"(l1a {int((sel.loc[acc, 'stage'] == 'l1a').sum())}, "
+              f"l1b {int((sel.loc[acc, 'stage'] == 'l1b').sum())})  "
+              f"mean {red.mean():.2f}%  page-average reduction "
+              f"{red.sum() / max(len(out), 1):.2f}%")
+        to = pd.to_numeric(out["tokens_orig"], errors="coerce")
+        tc = pd.to_numeric(out["tokens_comp"], errors="coerce").fillna(to)
+        print(f"corpus-level token saving (rejected pages count as 0%): "
+              f"{100.0 * (to.sum() - tc.sum()) / max(to.sum(), 1):.2f}%")
+    tok = (out["tokenizer"].dropna().iloc[0]
+           if "tokenizer" in out and out["tokenizer"].notna().any() else "?")
+    print(f"[02] tokenizer: {tok}")
+    print(f"[02] wrote {out_csv}")
+    print("[02] NEXT: python src/pipeline/03_run_stress_test.py --source", source)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", choices=["webcode2m"], default="webcode2m")
     ap.add_argument("--no-html-pass", dest="html_pass", action="store_false",
                     default=True, help="skip L1b (HTML-syntax pass)")
+    ap.add_argument("--report-only", action="store_true",
+                    help="skip rendering; re-print the summary from the existing gate CSVs")
     args = ap.parse_args()
+
+    rep = ROOT / "reports" / "csv"
+    out_csv = rep / f"level1_gate_{args.source}.csv"
+    stages_csv = rep / f"level1_stages_{args.source}.csv"
+    if args.report_only:
+        if not out_csv.exists() or not stages_csv.exists():
+            raise SystemExit(f"[02] --report-only needs {out_csv.name} and "
+                             f"{stages_csv.name}; run without it first")
+        summarize(pd.read_csv(stages_csv), pd.read_csv(out_csv), out_csv, args.source)
+        return
     _check_minify_html()
 
     manifest = ROOT / "data" / "splits" / f"pilot_{args.source}_manifest.csv"
@@ -64,7 +114,6 @@ def main() -> None:
         d.mkdir(parents=True, exist_ok=True)
     work = ROOT / "outputs" / "renders_gate" / args.source / "l1"
     work.mkdir(parents=True, exist_ok=True)
-    rep = ROOT / "reports" / "csv"
     rep.mkdir(parents=True, exist_ok=True)
 
     cfg = load_config(ROOT / "config" / "gate_config.yaml")
@@ -118,39 +167,9 @@ def main() -> None:
     stages_df = pd.DataFrame(stage_rows)
     stages_df.to_csv(rep / f"level1_stages_{args.source}.csv", index=False)
     out = pd.DataFrame(page_rows)
-    out_csv = rep / f"level1_gate_{args.source}.csv"
     out.to_csv(out_csv, index=False)
 
-    # ---- report ---------------------------------------------------------
-    print("\n[02] ---- Level 1 under the frozen gate, per stage ----")
-    for stage in ("l1a", "l1b"):
-        s = stages_df[(stages_df.get("stage") == stage) & (stages_df.get("status") == "ok")]
-        if not len(s):
-            continue
-        acc = s["accepted"].astype(bool)
-        red = pd.to_numeric(s.loc[acc, "reduction_pct"], errors="coerce")
-        pix = s["pixel_identical"].astype(bool).mean() if "pixel_identical" in s else float("nan")
-        print(f"{stage}: accepted {int(acc.sum())}/{len(s)}  pixel-identical "
-              f"{100 * pix:.0f}%  reduction on accepted mean "
-              f"{red.mean():.2f}% median {red.median():.2f}% p90 {red.quantile(.9):.2f}%")
-        rej = s[~acc]
-        if len(rej) and "center_shift_max" in rej:
-            cs = pd.to_numeric(rej["center_shift_max"], errors="coerce")
-            print(f"      rejected {len(rej)}: median centre shift {cs.median():.1f}px "
-                  f"(~4px = one collapsed inter-inline space), "
-                  f"G4 tripped on {int((~rej['g4_blocks'].astype(bool)).sum())}")
-    sel = out[out.get("status") == "ok"]
-    if len(sel):
-        acc = sel["accepted"].astype(bool)
-        red = pd.to_numeric(sel.loc[acc, "reduction_pct"], errors="coerce")
-        print(f"\nselected: accepted {int(acc.sum())}/{len(out)}  "
-              f"(l1a {int((sel.loc[acc, 'stage'] == 'l1a').sum())}, "
-              f"l1b {int((sel.loc[acc, 'stage'] == 'l1b').sum())})  "
-              f"mean {red.mean():.2f}%  corpus-level "
-              f"{red.sum() / max(len(out), 1):.2f}%")
-    print(f"[02] tokenizer: {tk.name}")
-    print(f"[02] wrote {out_csv}")
-    print("[02] NEXT: python src/pipeline/03_run_stress_test.py --source", args.source)
+    summarize(stages_df, out, out_csv, args.source)
 
 
 if __name__ == "__main__":

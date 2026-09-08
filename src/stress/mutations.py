@@ -38,6 +38,8 @@ from dataclasses import dataclass
 
 import numpy as np
 from bs4 import BeautifulSoup, Comment, NavigableString
+from bs4.dammit import EntitySubstitution
+from bs4.formatter import HTMLFormatter
 
 from src.compress.level1_minify import HTML_PARSER
 from src.stress.annotate import STAMP_ATTR
@@ -544,6 +546,25 @@ def s1_strip_comments(html, meta, rng, params, exclude):
     return MutationOutcome(str(s), (), detail=f"stripped {found} comments")
 
 
+class _UnsortedAttrsFormatter(HTMLFormatter):
+    """Identical to bs4's default 'minimal' formatter, except attributes()
+    is NOT alphabetized. The base Formatter.attributes() sorts unconditionally
+    (bs4.formatter.Formatter.attributes docstring), which would silently undo
+    S2's whole edit on serialization -- the reversed dict order never reaches
+    the output string, so the mutant is byte-identical to the stamped
+    original and the operator tests nothing."""
+    def __init__(self):
+        super().__init__(entity_substitution=EntitySubstitution.substitute_xml)
+
+    def attributes(self, tag):
+        if tag.attrs is None:
+            return []
+        return list(tag.attrs.items())
+
+
+_UNSORTED_ATTRS = _UnsortedAttrsFormatter()
+
+
 def s2_reorder_attributes(html, meta, rng, params, exclude):
     s = _soup(html)
     n = 0
@@ -553,7 +574,8 @@ def s2_reorder_attributes(html, meta, rng, params, exclude):
             n += 1
     if not n:
         return None
-    return MutationOutcome(str(s), (), detail=f"reordered attrs on {n} tags")
+    return MutationOutcome(s.decode(formatter=_UNSORTED_ATTRS), (),
+                           detail=f"reordered attrs on {n} tags")
 
 
 _TAG_SEG = re.compile(r"(<[^>]*>)")

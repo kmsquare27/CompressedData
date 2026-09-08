@@ -49,30 +49,34 @@ def load_config(path="config/gate_config.yaml") -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Token counting (Qwen2.5-VL tokenizer -> tiktoken -> chars/4 fallback)
+# Token counting (Qwen2.5-VL tokenizer -- the target model's own tokenizer,
+# no fallback: a substitute tokenizer's counts are not the number that
+# matters, and reporting them as if they were would be silently wrong)
 # ---------------------------------------------------------------------------
 class TokenCounter:
     _inst = None
+    MODEL_ID = "Qwen/Qwen2.5-VL-3B-Instruct"
 
     def __init__(self):
-        self.name, self._enc = "chars/4", None
+        from transformers import AutoTokenizer
         try:
-            from transformers import AutoTokenizer
             self._enc = AutoTokenizer.from_pretrained(
-                "Qwen/Qwen2.5-VL-3B-Instruct", trust_remote_code=True)
-            self.name = "qwen2.5-vl"
-        except Exception:
-            try:
-                import tiktoken
-                self._enc = tiktoken.get_encoding("cl100k_base")
-                self.name = "cl100k_base"
-            except Exception:
-                pass
+                self.MODEL_ID, trust_remote_code=True)
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError(
+                f"[gate] could not load the tokenizer for {self.MODEL_ID}; token "
+                f"counts have no fallback (fix network access / the local HF "
+                f"cache and retry): {e}") from e
+        revision = "unknown"
+        try:
+            from huggingface_hub import HfApi
+            revision = HfApi().model_info(self.MODEL_ID).sha
+        except Exception:  # noqa: BLE001
+            pass
+        self.name = f"qwen2.5-vl@{revision}"
         print(f"[gate] token counter: {self.name}")
 
     def count(self, text: str) -> int:
-        if self._enc is None:
-            return max(1, len(text) // 4)
         return len(self._enc.encode(text))
 
     @classmethod
@@ -319,6 +323,7 @@ def evaluate_pair(orig: PageArtifacts, comp: PageArtifacts,
 
     # G5 -- color (CIEDE2000 on matched block regions)
     des = []
+    g5_exc = None
     try:
         from skimage import color as skcolor
         for i, j in pairs:
@@ -327,11 +332,18 @@ def evaluate_pair(orig: PageArtifacts, comp: PageArtifacts,
                 continue
             des.append(float(skcolor.deltaE_ciede2000(la[None, :], lb[None, :])[0]))
     except Exception as e:  # noqa: BLE001
-        R["g5_error"] = str(e)
-    R["deltae_p95"] = round(float(np.percentile(des, 95)), 3) if des else 0.0
-    R["deltae_max"] = round(float(np.max(des)), 3) if des else 0.0
-    R["g5_color"] = (R["deltae_p95"] <= cfg["deltae_p95_max"]
-                     and R["deltae_max"] <= cfg["deltae_max"])
+        g5_exc = e
+    if g5_exc is not None or not des:
+        # No measurement is not a pass: 0.0 would silently clear both
+        # thresholds. Record why and let the soundness rule (pixel-identical
+        # renders) be the only thing that can still accept this page.
+        R["g5_color"] = False
+        R["g5_error"] = str(g5_exc) if g5_exc is not None else "no color measurements"
+    else:
+        R["deltae_p95"] = round(float(np.percentile(des, 95)), 3)
+        R["deltae_max"] = round(float(np.max(des)), 3)
+        R["g5_color"] = (R["deltae_p95"] <= cfg["deltae_p95_max"]
+                         and R["deltae_max"] <= cfg["deltae_max"])
 
     # Common-crop for pixel metrics (diagnostics + optional G6)
     h = min(img_o.shape[0], img_c.shape[0]); w = min(img_o.shape[1], img_c.shape[1])
@@ -351,7 +363,7 @@ def evaluate_pair(orig: PageArtifacts, comp: PageArtifacts,
             R["lpips_max_tile"] = round(_tiled_lpips(co, cc), 4)
             R["g6_lpips"] = R["lpips_max_tile"] <= cfg["lpips_max"]
         except Exception as e:  # noqa: BLE001
-            R["g6_lpips"], R["g6_error"] = True, f"lpips unavailable: {e}"
+            R["g6_lpips"], R["g6_error"] = False, f"lpips unavailable: {e}"
     else:
         R["g6_lpips"] = True
 

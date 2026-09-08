@@ -48,8 +48,9 @@ from src.render.harness import RenderHarness  # noqa: E402
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", default="webcode2m")
-    ap.add_argument("--strict", action="store_true",
-                    help="require pixel identity instead of the frozen gate")
+    ap.add_argument("--tolerance", action="store_true",
+                    help="accept the frozen gate's own tolerances; by default a "
+                         "rung must be PIXEL-IDENTICAL to the original to be accepted")
     ap.add_argument("--repeat", action="store_true",
                     help="render each original twice; a page whose two captures differ "
                          "is marked unstable_original and excluded (repeatability evidence)")
@@ -59,12 +60,15 @@ def main() -> None:
     sel = pd.read_csv(ROOT / "reports" / "csv" / f"level_selection_{src}.csv")
     sel["page_id"] = sel["page_id"].astype(str)
     render_dir = ROOT / "outputs" / "renders_final" / src
-    render_dir.mkdir(parents=True, exist_ok=True)
     work = ROOT / "outputs" / "renders_gate" / src / "final"
-    work.mkdir(parents=True, exist_ok=True)
     # Byte-frozen copies of the validated targets: later re-runs of 02/06
     # overwrite outputs/level*/, which must not change what was trained on.
     target_dir = ROOT / "outputs" / "final_targets" / src
+    # Neither directory may carry a file this run did not itself validate.
+    shutil.rmtree(render_dir, ignore_errors=True)
+    shutil.rmtree(target_dir, ignore_errors=True)
+    render_dir.mkdir(parents=True, exist_ok=True)
+    work.mkdir(parents=True, exist_ok=True)
     target_dir.mkdir(parents=True, exist_ok=True)
     cfg = load_config(ROOT / "config" / "gate_config.yaml")
     tk = TokenCounter.get()
@@ -77,10 +81,13 @@ def main() -> None:
             orig_path = ladder[-1]["html_path"]
             row = {"page_id": pid, "selected_level": r["level"]}
             try:
+                # Counted from the file, before the render, so a page that
+                # fails to render still has a token count in the corpus sums.
+                orig_text = Path(orig_path).read_text(encoding="utf-8", errors="ignore")
+                row["tokens_orig"] = tk.count(orig_text)
                 art_o = render_page(h, orig_path, render_dir / f"{pid}.png", tk)
             except Exception as e:  # noqa: BLE001
                 rows.append({**row, "status": f"failed_original: {e}"}); continue
-            row["tokens_orig"] = art_o.tokens
             row["original_sha256"] = hashlib.sha256(Path(orig_path).read_bytes()).hexdigest()
             if args.repeat:
                 try:
@@ -103,33 +110,40 @@ def main() -> None:
                 pass
 
             final, rung_tried, first_ok = None, 0, None
+            frozen = target_dir / f"{pid}.html"
             for rung in ladder:
                 if rung["level"] == "original":
-                    final = {"level": "original", "html_path": orig_path,
+                    shutil.copyfile(orig_path, frozen)
+                    final = {"level": "original", "source_path": orig_path,
                              "tokens": art_o.tokens, "accepted": True, "pixel_identical": True}
                     break
                 rung_tried += 1
+                # Validate the FROZEN COPY, not the mutable outputs/level*
+                # file: what gets gated must be byte-identical to what the
+                # manifest ends up pointing at.
+                shutil.copyfile(rung["html_path"], frozen)
                 try:
-                    art_c = render_page(h, rung["html_path"], work / f"{pid}_{rung['level']}.png", tk)
+                    art_c = render_page(h, frozen, work / f"{pid}_{rung['level']}.png", tk)
                     R = evaluate_pair(art_o, art_c, cfg, page_id=pid)
                 except Exception as e:  # noqa: BLE001
-                    row[f"{rung['level']}_error"] = str(e); continue
-                ok = bool(R["accepted"]) and (bool(R["pixel_identical"]) or not args.strict)
+                    row[f"{rung['level']}_error"] = str(e)
+                    frozen.unlink(missing_ok=True)
+                    continue
+                ok = bool(R["accepted"]) and (bool(R["pixel_identical"]) or args.tolerance)
                 row[f"{rung['level']}_final_ok"] = ok
                 row[f"{rung['level']}_pixel_identical"] = bool(R["pixel_identical"])
                 if first_ok is None:
                     first_ok = ok
                 if ok:
-                    final = {"level": rung["level"], "html_path": rung["html_path"],
+                    final = {"level": rung["level"], "source_path": rung["html_path"],
                              "tokens": art_c.tokens, "accepted": True,
                              "pixel_identical": bool(R["pixel_identical"]),
                              **{k: R[k] for k in ("height_delta_px", "text_ratio", "iou_mean",
                                                   "center_shift_max", "deltae_max") if k in R}}
                     break
-            frozen = target_dir / f"{pid}.html"
-            shutil.copyfile(final["html_path"], frozen)
+                frozen.unlink(missing_ok=True)
             final_sha = hashlib.sha256(frozen.read_bytes()).hexdigest()
-            rows.append({**row, "status": "ok", "validated_source_path": final["html_path"],
+            rows.append({**row, "status": "ok", "validated_source_path": final["source_path"],
                          "final_sha256": final_sha,
                          "first_rung_passed": bool(first_ok) if first_ok is not None else None,
                          "rungs_tried": rung_tried,
@@ -155,9 +169,13 @@ def main() -> None:
     man.to_csv(man_csv, index=False)
 
     env = {"script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+           "harness_sha256": hashlib.sha256(
+               (ROOT / "src" / "render" / "harness.py").read_bytes()).hexdigest(),
+           "gate_sha256": hashlib.sha256(
+               (ROOT / "src" / "compare" / "gate.py").read_bytes()).hexdigest(),
            "python": sys.version, "platform": platform.platform(),
            "browser": getattr(getattr(h, "browser", None), "version", None), "tokenizer": tk.name,
-           "gate_config": cfg, "strict": args.strict, "repeat": args.repeat}
+           "gate_config": cfg, "tolerance": args.tolerance, "repeat": args.repeat}
     try:
         import importlib.metadata as im
         env["playwright"] = im.version("playwright")
@@ -171,7 +189,8 @@ def main() -> None:
         fr = ok["first_rung_passed"].dropna()
         print(f"selected artifact passed as-is : {int(fr.astype(bool).sum())}/{len(fr)}  "
               f"<- the paper's 'every selected target re-validated' number")
-        print(f"fell back one or more rungs    : {int((ok['rungs_tried'] > 1).sum())}")
+        print(f"fell back one or more rungs    : "
+              f"{int((ok['final_level'] != ok['selected_level']).sum())}")
         print(f"pixel-identical to original    : "
               f"{int(ok['final_pixel_identical'].astype(bool).sum())}/{len(ok)}")
         print(f"final level                    : "
@@ -179,12 +198,17 @@ def main() -> None:
         to, tf = ok["tokens_orig"].sum(), ok["tokens_final"].sum()
         print(f"token saving, validated pages  : {100.0 * (to - tf) / max(to, 1):.2f}%  "
               f"({int(to - tf):,} of {int(to):,}) on {len(ok)} pages")
-        # A full-corpus claim counts every failed/unstable page at 0% saving.
-        n_bad = len(out) - len(ok)
-        if n_bad:
-            print(f"token saving, all {len(out)} inputs   : "
-                  f"~{100.0 * (to - tf) / max(to, 1) * len(ok) / len(out):.2f}%  "
-                  f"({n_bad} pages not validated, counted at 0%; the paper reports this one)")
+        # Corpus-wide figure over EVERY input page: a page that failed or was
+        # unstable contributes tokens_final == tokens_orig (zero saving), not
+        # the validated-pages rate scaled by a fraction.
+        to_all = pd.to_numeric(out["tokens_orig"], errors="coerce")
+        tf_all = pd.to_numeric(out["tokens_final"], errors="coerce").fillna(to_all)
+        sum_to, sum_tf = to_all.sum(), tf_all.sum()
+        n_zero = len(out) - len(ok)
+        print(f"token saving, all {len(out)} inputs   : "
+              f"{100.0 * (sum_to - sum_tf) / max(sum_to, 1):.2f}%  "
+              f"({int(sum_to - sum_tf):,} of {int(sum_to):,}; "
+              f"{n_zero} page(s) counted at zero: failed or unstable)")
         if "dataset_png_same_size" in ok:
             s = ok["dataset_png_same_size"].dropna()
             print(f"dataset screenshot same size as harness render: "

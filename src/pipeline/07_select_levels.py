@@ -54,6 +54,9 @@ def _num(df: pd.DataFrame, col: str) -> pd.Series:
     return pd.to_numeric(df[col], errors="coerce")
 
 
+_BASE_NORM = {"level1": "l1", "level2": "l2", "level3": "l3"}
+
+
 def load_level(path: Path, level: str) -> pd.DataFrame:
     if not path.exists():
         print(f"[07] no {path.name}; treating {level} as unavailable")
@@ -65,6 +68,9 @@ def load_level(path: Path, level: str) -> pd.DataFrame:
     # `.where()` from receiving a scalar True (which raised ValueError).
     base_col = (d["base"].astype(str) if "base" in d.columns
                 else pd.Series("original", index=d.index))
+    # 06 records the raw stage name ("level1"); normalize to the "l1" label
+    # the composition table below matches on, so stacked pages are counted.
+    base_col = base_col.map(lambda v: _BASE_NORM.get(v, v))
     out = pd.DataFrame({
         "page_id": d["page_id"].astype(str),
         f"{level}_ok": _accepted(d),
@@ -82,8 +88,6 @@ def load_level(path: Path, level: str) -> pd.DataFrame:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", default="webcode2m")
-    ap.add_argument("--write-final-manifest", action="store_true",
-                    help="also write compressed_<src>_manifest.csv here (skip step 08)")
     args = ap.parse_args()
     src = args.source
 
@@ -100,6 +104,27 @@ def main() -> None:
         df = df.merge(load_level(rep / f"level{lv[-1]}_gate_{src}.csv", lv),
                       on="page_id", how="left")
 
+    # L1a/L1b rungs: finer-grained than the single `l1` rung (whichever stage
+    # 06 composed on), so step 08 can fall back to a stage even when the
+    # final L1 pick and the winning stage happen to be the same file.
+    l1_stage_dirs = {"l1a": ROOT / "outputs" / "level1a" / src,
+                     "l1b": ROOT / "outputs" / "level1b" / src}
+    l1_stage_rungs: dict[str, list] = {}
+    stages_csv = rep / f"level1_stages_{src}.csv"
+    if stages_csv.exists():
+        st = pd.read_csv(stages_csv)
+        st["page_id"] = st["page_id"].astype(str)
+        st = st[st["stage"].isin(["l1a", "l1b"]) & _accepted(st)]
+        for _, sr in st.iterrows():
+            p = l1_stage_dirs[sr["stage"]] / f"{sr['page_id']}.html"
+            if not p.exists() or pd.isna(sr.get("tokens_comp")):
+                continue
+            l1_stage_rungs.setdefault(sr["page_id"], []).append(
+                {"level": sr["stage"], "html_path": str(p),
+                 "tokens": float(sr["tokens_comp"]), "base": "original"})
+    else:
+        print(f"[07] no {stages_csv.name}; L1a/L1b ladder rungs unavailable")
+
     orig = df["l1_orig_tokens"]
     for lv in ("l2", "l3"):
         orig = orig.fillna(df[f"{lv}_orig_tokens"])
@@ -115,6 +140,8 @@ def main() -> None:
                 ladder.append({"level": lv, "html_path": str(p),
                                "tokens": float(r[f"{lv}_tokens"]),
                                "base": str(r.get(f"{lv}_base", ""))})
+        ladder.extend(l1_stage_rungs.get(pid, []))
+        ladder = list({c["html_path"]: c for c in ladder}.values())
         ladder.sort(key=lambda c: c["tokens"])
         ladder.append({"level": "original", "html_path": str(r["html_path"]),
                        "tokens": float(t_orig) if pd.notna(t_orig) else float("nan"),
@@ -141,12 +168,6 @@ def main() -> None:
                 "tokens_orig", "tokens_final", "reduction_pct"]
     man_csv = ROOT / "data" / "splits" / f"selected_{src}_manifest.csv"
     out[man_cols].to_csv(man_csv, index=False)
-    if args.write_final_manifest:
-        # Same content as v2's compressed_ manifest: NOT re-validated against
-        # the original render and paired with the DATASET screenshot.
-        final_csv = ROOT / "data" / "splits" / f"compressed_{src}_manifest.csv"
-        out[man_cols].rename(columns={"dataset_png_path": "png_path"}).to_csv(final_csv, index=False)
-        print(f"[07] wrote {final_csv} (UNVALIDATED; step 08 supersedes it)")
 
     # ---- report -----------------------------------------------------------
     n = len(out)

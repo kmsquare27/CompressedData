@@ -260,7 +260,7 @@ class RenderHarness:
     # -- core operations ------------------------------------------------------
     def load(self, html_path) -> None:
         uri = Path(html_path).resolve().as_uri()
-        self.page.goto(uri, wait_until="load", timeout=30000)
+        self.page.goto(uri, wait_until="load", timeout=90000)
         freeze = self.page.add_style_tag(content=FREEZE_CSS)
         # Tag it: Level 3 must map the page's OWN <style> elements to the
         # source blocks and leave this one alone (and active).

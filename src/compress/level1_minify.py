@@ -21,7 +21,10 @@ Two things were wrong with that:
      impossible to happen again: a wrong keyword argument raises.
 
 STAGES.
-  L1a  render-neutral BY CONSTRUCTION. Never touches HTML whitespace.
+  L1a  proposes pruning and CSS-minification transformations; the gate
+       checks their rendered output. Counterexamples exist for every
+       operator (e.g. [aria-hidden] selectors, content: attr(title),
+       DOM-writing inline scripts). Never touches HTML whitespace.
          - HTML comments, <script>, <noscript>
          - on*, aria-*, title, data-* (unless a [data- selector exists)
          - <meta> except charset/viewport; <link> except stylesheets
