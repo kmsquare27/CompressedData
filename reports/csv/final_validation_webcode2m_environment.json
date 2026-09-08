@@ -15,7 +15,7 @@
   "use_lpips": false,
   "lpips_max": 0.005
  },
- "strict": false,
+ "strict": true,
  "repeat": true,
  "playwright": "1.62.0"
 }

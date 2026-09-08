@@ -21,3 +21,31 @@ If widths *also* differ, the dataset was captured at a different viewport, which
 State it once in the paper: "All training and evaluation images are produced by the same deterministic render harness; the dataset's own screenshots are not used, because visual equivalence is proven under the harness, not under the dataset's capture conditions." A reviewer who sees "15/99 same size" without that sentence will assume a bug; with it, it's a design choice.
 
 Two smaller notes from this run: `we00071` timed out at `Page.goto` (30 s) — raise the harness timeout or leave it at 0 % as the report already does, but check whether it also timed out in steps 02/06; and the 4 gate-passed-but-not-pixel-identical pages are the sub-JND cases — glance at their diff images once so you can describe them in one sentence.
+
+Look at those numbers: ΔE max 0.000, IoU 1.000, height delta 0. The gate can't find anything wrong — these aren't damaged pages, they're pages that differ in a handful of anti-aliased pixels.
+
+I have a specific hypothesis, and it's checkable in one command: **these three pages were already not pixel-identical to the original at step 08, before L3 existed.** Your earlier run reported 95/99 pixel-identical, this one 94/98 — there have always been ~4 such pages. Their base is `final:l2`, and L3 gates the *stacked* artifact against the *original* with strict pixel identity. If the L2 base already differed from the original by a few pixels, no L3 output built on it can ever be pixel-identical, however correct L3's edits are. L3 would be inheriting a rejection, not causing one.
+
+```powershell
+python -c "import pandas as pd; d=pd.read_csv('reports/csv/final_validation_webcode2m.csv'); print(d[d.page_id.isin(['we00016','we00091','we00092'])][['page_id','final_level','final_pixel_identical','l2_pixel_identical','deltae_max','center_shift_max']].to_string()); print('not pixel-identical at 08:', d[~d.final_pixel_identical.astype(bool)].page_id.tolist())"
+```
+
+If those three appear in that last list, the hypothesis holds and there's nothing to fix in the classifier. To confirm how small the difference is:
+
+```powershell
+python -c "
+import numpy as np; from PIL import Image
+for p in ['we00016','we00091','we00092']:
+    a=np.array(Image.open(f'outputs/renders_gate/webcode2m/l3/{p}__orig.png').convert('RGB')).astype(int)
+    b=np.array(Image.open(f'outputs/renders_gate/webcode2m/l3/{p}__l3.png').convert('RGB')).astype(int)
+    if a.shape!=b.shape: print(p,'shape',a.shape,b.shape); continue
+    m=np.any(a!=b,axis=2); ys,xs=np.nonzero(m)
+    print(p,'diff px',int(m.sum()),'of',m.size,'max channel delta',int(np.abs(a-b).max()),'bbox',(xs.min(),ys.min(),xs.max(),ys.max()) if m.sum() else None)"
+```
+
+Expect a few dozen pixels with a channel delta of 1–2, clustered on a text edge. That's font rasterization, not a rendering change.
+
+**What to do about it:** nothing, and say so. Falling back to L2 on three pages costs roughly 3 × 12 % of those pages' tokens — a rounding error against 30.84 % — and rejecting them is the conservative behaviour your acceptance rule promises. Don't reach for `--no-strict` to recover it; that would swap a principled criterion for a slightly larger number.
+
+For the paper this is a useful paragraph rather than a caveat: strict pixel identity is not transitive through a stacked pipeline, so a page whose earlier level was accepted sub-JND cannot pass a later strict level, and the pipeline correctly keeps the earlier target. It also explains why L3's 84 accepted is below the 87 gated without implying any classifier error — which the empty findings file already supports.
+Both culprits are the same thing: an empty <span> — <span id="more-16221"></span> and <span class="author vcard"></span> — with no children and no box, removed as invisible, but painting via a ::before/::after rule or feeding an adjacent-sibling selector. One line for your limitations section: zero-area elements can still paint through generated content; the annotator's paintable test measures the element's own box, not its pseudo-elements. (we00091 is unrelated — no single L1 operator reproduces it, so it's an interaction; leave it.)

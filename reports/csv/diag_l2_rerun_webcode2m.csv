@@ -1,0 +1,4 @@
+page_id,tokens_orig,old_kept,new_kept,dropped_edits,added_edits,prescreen_dropped,gate_calls_old,gate_calls_new,old_tokens,old_reduction_pct,old_accepted,old_pixel_identical,old_n_diff,old_max_delta,old_bbox,new_tokens,new_reduction_pct,new_accepted,new_pixel_identical,new_n_diff,new_max_delta,new_bbox
+we00016,5951,"{""collapse"": 29, ""remove"": 10}","{""collapse"": 29, ""remove"": 10}",0,0,3,13.0,13.0,4436,25.458,True,False,90,51,"(800, 626, 860, 633)",4436,25.458,True,False,90,51,"(800, 626, 860, 633)"
+we00091,8292,"{""collapse"": 6, ""remove"": 3}","{""collapse"": 6, ""remove"": 3}",0,0,1,1.0,1.0,5971,27.991,True,False,1162,190,"(1038, 1005, 1199, 1017)",5971,27.991,True,False,1162,190,"(1038, 1005, 1199, 1017)"
+we00092,4239,"{""collapse"": 6, ""remove"": 6}","{""collapse"": 6, ""remove"": 6}",0,0,2,1.0,1.0,3265,22.977,True,False,51,51,"(241, 126, 250, 135)",3265,22.977,True,False,51,51,"(241, 126, 250, 135)"
