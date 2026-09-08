@@ -1,0 +1,2 @@
+kind,name,source,recall,recall_ci_lo,recall_ci_hi,fpr,thresholds,recall_M1,recall_M2,recall_M3,recall_M4,recall_M5,recall_M6,recall_M7,recall_M8,recall_src_webcode2m
+composite,frozen,webcode2m,0.9917,0.9848,0.9955,0.0443,"{""height_delta"": 1.0, ""text_dissim"": 0.0005, ""iou_deficit"": 0.005, ""center_shift"": 1.0, ""deltae_p95"": 0.5, ""deltae_max"": 1.0, ""lpips_max_tile"": 0.005}",1.0,1.0,0.997,0.974,0.99,1.0,1.0,1.0,0.992

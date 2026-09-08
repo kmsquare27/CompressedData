@@ -1,9 +1,11 @@
 {
- "script_sha256": "cb5f3fe5ad2f13b8eb05d4ddc30c1ebcec7a343671ac4b27a20a9820da5e1c0a",
+ "script_sha256": "aff6eb67a35dd2b58cf46e503b63f4fad3387f27d09e444d84dc21d8a1aaf50f",
+ "harness_sha256": "cf2380a0a9dbce299e605c3f60f862e50ddbaf22a52b1193601c7f6354135791",
+ "gate_sha256": "56ba6b340aa6d882d2ebf9cfc039fecadebd6db4f0763def49632ba612577fe1",
  "python": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
  "platform": "Windows-11-10.0.26200-SP0",
  "browser": "151.0.7922.34",
- "tokenizer": "qwen2.5-vl",
+ "tokenizer": "qwen2.5-vl@66285546d2b821cf421d4f5eb2576359d3770cd3",
  "gate_config": {
   "height_tol_px": 1,
   "text_ratio_min": 0.9995,
@@ -15,7 +17,7 @@
   "use_lpips": false,
   "lpips_max": 0.005
  },
- "strict": true,
+ "tolerance": false,
  "repeat": true,
  "playwright": "1.62.0"
 }
