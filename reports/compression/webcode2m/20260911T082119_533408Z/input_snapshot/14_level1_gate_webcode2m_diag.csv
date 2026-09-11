@@ -1,0 +1,4 @@
+page_id,tokenizer,g0_parse,tokens_orig,tokens_comp,reduction_pct,g1_tokens,docH_orig,docH_comp,height_delta_px,g2_height,text_ratio,g3_text,n_boxes_orig,n_boxes_comp,iou_mean,center_shift_max,n_unmatched,g4_blocks,deltae_p95,deltae_max,g5_color,ssim_diag,g6_lpips,pixel_identical,accepted,stage,status
+we00016,qwen2.5-vl,True,5951.0,5008.0,15.846,True,1600.0,1600.0,0.0,True,1.0,True,31.0,31.0,1.0,0.0,0.0,True,0.0,0.0,True,1.0,True,True,True,l1b,ok
+we00091,qwen2.5-vl,True,8292.0,6587.0,20.562,True,1459.0,1459.0,0.0,True,1.0,True,45.0,45.0,1.0,0.0,0.0,True,0.0,0.002,True,0.99887,True,False,True,l1b,ok
+we00092,qwen2.5-vl,True,4239.0,3485.0,17.787,True,2097.0,2097.0,0.0,True,1.0,True,46.0,46.0,1.0,0.0,0.0,True,0.0,0.0,True,1.0,True,True,True,l1b,ok

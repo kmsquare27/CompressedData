@@ -1,0 +1,295 @@
+{
+  "source": "webcode2m",
+  "created_utc": "2026-09-11T08:21:19.763453+00:00",
+  "mode": "recount_and_verify",
+  "tokenizer": {
+    "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+    "requested_revision": "66285546d2b821cf421d4f5eb2576359d3770cd3",
+    "resolved_commit": null,
+    "backend_sha256": "e360e6f6266884e6667874f3a7d158ca20c4639e2e1dc80427e1edc2c69a38c7",
+    "add_special_tokens": true,
+    "note": "HTML target tokens only; training chat/image/padding tokens are not counted here."
+  },
+  "all_input_accounting": {
+    "n_rows": 100,
+    "n_known": 100,
+    "n_unknown": 0,
+    "tokens_original": 383828,
+    "tokens_final": 266783,
+    "tokens_saved": 117045,
+    "corpus_reduction_pct": 30.494127577977636,
+    "compression_factor": 1.4387273551912978,
+    "page_mean_reduction_pct": 27.877812941481256,
+    "page_std_reduction_pct": 14.999957781461672,
+    "page_p0_reduction_pct": 0.0,
+    "page_p10_reduction_pct": 10.176839191420111,
+    "page_p25_reduction_pct": 17.083470291936997,
+    "page_p50_reduction_pct": 28.232167571752917,
+    "page_p75_reduction_pct": 35.99558146820772,
+    "page_p90_reduction_pct": 46.88784991845507,
+    "page_p95_reduction_pct": 51.53495600224292,
+    "page_p100_reduction_pct": 74.78934183557277
+  },
+  "validated_training_pairs": {
+    "n_rows": 99,
+    "n_known": 99,
+    "n_unknown": 0,
+    "tokens_original": 381111,
+    "tokens_final": 264066,
+    "tokens_saved": 117045,
+    "corpus_reduction_pct": 30.711524988782795,
+    "compression_factor": 1.4432414623616823,
+    "page_mean_reduction_pct": 28.159407011597228,
+    "page_std_reduction_pct": 14.80824781553781,
+    "page_p0_reduction_pct": 0.0,
+    "page_p10_reduction_pct": 10.407769966889102,
+    "page_p25_reduction_pct": 17.641574462453754,
+    "page_p50_reduction_pct": 28.61514919663351,
+    "page_p75_reduction_pct": 36.095892666145176,
+    "page_p90_reduction_pct": 47.05772790390875,
+    "page_p95_reduction_pct": 51.62720796491454,
+    "page_p100_reduction_pct": 74.78934183557277
+  },
+  "actually_shorter_validated_pairs": {
+    "n_rows": 96,
+    "n_known": 96,
+    "n_unknown": 0,
+    "tokens_original": 373521,
+    "tokens_final": 256476,
+    "tokens_saved": 117045,
+    "corpus_reduction_pct": 31.335587557326093,
+    "compression_factor": 1.456358489683245,
+    "page_mean_reduction_pct": 29.039388480709636,
+    "page_std_reduction_pct": 14.15577101996389,
+    "page_p0_reduction_pct": 0.27593818984547464,
+    "page_p10_reduction_pct": 11.785101458262059,
+    "page_p25_reduction_pct": 18.191080445495494,
+    "page_p50_reduction_pct": 28.92821157713044,
+    "page_p75_reduction_pct": 36.53089693481294,
+    "page_p90_reduction_pct": 47.56736186026983,
+    "page_p95_reduction_pct": 51.90396385292941,
+    "page_p100_reduction_pct": 74.78934183557277
+  },
+  "n_validated": 99,
+  "n_excluded": 1,
+  "n_shorter": 96,
+  "n_identical_validated": 99,
+  "n_shorter_and_identical": 96,
+  "n_original_fallbacks": 3,
+  "n_level_label_changes_after_selection": 4,
+  "n_pages_trying_multiple_rungs": 4,
+  "n_repeat_measured": 100,
+  "n_repeat_identical": 99,
+  "n_pairs_with_both_hashes_verified": 99,
+  "status_counts": {
+    "ok": 99,
+    "unstable_original": 1
+  },
+  "bootstrap_all_input_accounting": {
+    "unit": "page",
+    "n_groups": 100,
+    "n_resamples": 2000,
+    "corpus_reduction_pct_95ci": [
+      27.527632675511228,
+      33.23664126809463
+    ],
+    "page_mean_reduction_pct_95ci": [
+      24.964195452664974,
+      30.742757891859902
+    ]
+  },
+  "bootstrap_validated_pairs": {
+    "unit": "page",
+    "n_groups": 99,
+    "n_resamples": 2000,
+    "corpus_reduction_pct_95ci": [
+      27.844494138917472,
+      33.41096048116884
+    ],
+    "page_mean_reduction_pct_95ci": [
+      25.341619185690984,
+      30.952340882173218
+    ]
+  },
+  "savings_concentration": {
+    "gini": 0.42020271060383835,
+    "top_decile_share_pct": 25.093767354436327
+  },
+  "sequence_accounting": {
+    "pages_measured": 99,
+    "max_pixels": 1003520,
+    "image_tokens_total": 30791.0,
+    "image_tokens_median": 312.0,
+    "image_share_of_sequence_pct": 7.475321799845594,
+    "html_reduction_pct": 30.711524988782795,
+    "sequence_reduction_pct": 28.41573966623129
+  },
+  "tokenizer_sensitivity": [],
+  "step08_environment": {
+    "script_sha256": "aff6eb67a35dd2b58cf46e503b63f4fad3387f27d09e444d84dc21d8a1aaf50f",
+    "harness_sha256": "cf2380a0a9dbce299e605c3f60f862e50ddbaf22a52b1193601c7f6354135791",
+    "gate_sha256": "56ba6b340aa6d882d2ebf9cfc039fecadebd6db4f0763def49632ba612577fe1",
+    "python": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "browser": "151.0.7922.34",
+    "tokenizer": "qwen2.5-vl@66285546d2b821cf421d4f5eb2576359d3770cd3",
+    "gate_config": {
+      "height_tol_px": 1,
+      "text_ratio_min": 0.9995,
+      "iou_mean_min": 0.995,
+      "center_shift_max_px": 1.0,
+      "deltae_p95_max": 0.5,
+      "deltae_max": 1.0,
+      "require_token_reduction": true,
+      "use_lpips": false,
+      "lpips_max": 0.005
+    },
+    "tolerance": false,
+    "repeat": true,
+    "playwright": "1.62.0"
+  },
+  "notes": [
+    "Headline cohort is ALL rows of Step 08, not only pages whose compression succeeded.",
+    "Failed/unstable pages receive zero saving for corpus accounting only; they are not training examples.",
+    "Original fallbacks can be pixel-identical without any compression; both rates are reported separately.",
+    "Cumulative stage curve is the best available stage-accepted target at each level, before final revalidation. It is not an independently revalidated L1/L2 ablation or a causal contribution waterfall.",
+    "Source category counts allocate each whole-document token to its source-span midpoint; totals add exactly, but categories are lexical and not causal. A text node need not be visible; CSS/script whitespace remains inside CSS/script categories.",
+    "Sequence accounting is an ESTIMATE from render dimensions and the documented resize rule; it excludes prompt/chat/padding tokens. Report the HTML figure and the sequence figure together, never the HTML figure alone as a compute claim.",
+    "L2 operator token deltas are separate counterfactuals; they need not add to total L2 savings and include serialization interactions.",
+    "L3 buckets: characters removed in stage-accepted candidates, not token counts or an attribution to the final dataset.",
+    "CSS census contains proposed opportunity on its recorded base, not realized final savings; individual token deltas are not additive."
+  ],
+  "inputs": {
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\final_validation_webcode2m.csv": {
+      "sha256": "cd46d87aa1866a3a3b91c9557cbf0869f01d66a336a7cc8728adf61b0705482e",
+      "snapshot": "00_final_validation_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\data\\splits\\compressed_webcode2m_manifest.csv": {
+      "sha256": "8d0f68a6394fbf016dbd94e2d67176e0300186e137709115e6be42409b4e2c51",
+      "snapshot": "01_compressed_webcode2m_manifest.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\data\\splits\\pilot_webcode2m_manifest.csv": {
+      "sha256": "39e9650628b66c4f79b392f3766404b3b290ab58404ab1f225a4fb31a1940ca4",
+      "snapshot": "02_pilot_webcode2m_manifest.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level_selection_webcode2m.csv": {
+      "sha256": "f8f153eed4119e37a2d2d9c522fb219cd05588b6e08e456ab0eedc97401681df",
+      "snapshot": "03_level_selection_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\final_validation_webcode2m_environment.json": {
+      "sha256": "0dba51f84d0909f0f0e9c6f67765bb1b6607ed1da975dcd117fa75b69b56f5d0",
+      "snapshot": "04_final_validation_webcode2m_environment.json"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\css_census_buckets_webcode2m.csv": {
+      "sha256": "4df742072f7a44a03d46ec5cf0b7b28b41027b609d6b698e36f27f383f34d430",
+      "snapshot": "05_css_census_buckets_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\css_census_webcode2m.csv": {
+      "sha256": "9101c16900b77795b5ff3b91c2f73a082f34b1d8a9ca3f3df89047e0e9cd99a8",
+      "snapshot": "06_css_census_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\culprit2_webcode2m.csv": {
+      "sha256": "c27cb0972ad7d2ab67d23b35072fb73a48f5d53bf38e4616ecedb10892dca970",
+      "snapshot": "07_culprit2_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\determinism_audit_webcode2m.csv": {
+      "sha256": "6526d40a756906207c1a16a9cf203b98b89678feeb69dcf3eb4ddf8183ac74c0",
+      "snapshot": "08_determinism_audit_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\diag_l2_rerun_webcode2m.csv": {
+      "sha256": "80f7fc4fc14581e042e6f53d8231f411b9aab068a30311e949e5ce8acbcef240",
+      "snapshot": "09_diag_l2_rerun_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\gate_calibration_frozen_webcode2m.csv": {
+      "sha256": "3555bcbad8c72f371551a72ee871db6372c87873075c6352f29f837f629d2992",
+      "snapshot": "10_gate_calibration_frozen_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\l1a_bisect_webcode2m.csv": {
+      "sha256": "2eeb25babd8399c1ef68dc467f454e26fa8be893c25f52591d16cc5c970ed84b",
+      "snapshot": "11_l1a_bisect_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\l2_culprit_webcode2m.csv": {
+      "sha256": "9af6724a7411634d2abfe3eb900fa62ab86421ce97ba41f067359a748d477d89",
+      "snapshot": "12_l2_culprit_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level1_gate_webcode2m.csv": {
+      "sha256": "2f8c04208774666a27bf635126ca140f0f5dbb2d6c12da4dc946a121b365b6f2",
+      "snapshot": "13_level1_gate_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level1_gate_webcode2m_diag.csv": {
+      "sha256": "07004cd7797e5354352bbdb95874e79c50e3adb97c273f4f575070a16fa951eb",
+      "snapshot": "14_level1_gate_webcode2m_diag.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level1_stages_webcode2m.csv": {
+      "sha256": "25c7663219a39eb017b9f987aa9797b0c77c891e9b6b5429362401c3853164b2",
+      "snapshot": "15_level1_stages_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level2_edits_webcode2m.csv": {
+      "sha256": "b91026b7b5285b5471f000eb188a442168a2a46664e61db38119b694d475b799",
+      "snapshot": "16_level2_edits_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level2_edits_webcode2m_diag.csv": {
+      "sha256": "9e394bf1432ed7072a1560cd084a05a7438d1826ce4522a4a03dc0c8adbdaf3f",
+      "snapshot": "17_level2_edits_webcode2m_diag.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level2_gate_webcode2m.csv": {
+      "sha256": "85003c3bf156be1dc0e07fb0d68d22adabe457d62c42c1d7da190e02366d84c3",
+      "snapshot": "18_level2_gate_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level2_gate_webcode2m_diag.csv": {
+      "sha256": "1d2a5754486f83eee42bb36128fbbdfc152333b8d27d183d30bbc1bb52b1adef",
+      "snapshot": "19_level2_gate_webcode2m_diag.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level3_buckets_webcode2m.csv": {
+      "sha256": "8d390dc7c4b22c13a4686a9fa5c570209bd87e92003147088bb07a49ddc7c48d",
+      "snapshot": "20_level3_buckets_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level3_findings_webcode2m.csv": {
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "snapshot": "21_level3_findings_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\level3_gate_webcode2m.csv": {
+      "sha256": "d90bbeb8a954658f3fd8bc578a1db557167679c37cb52d220a3881afbc1671ab",
+      "snapshot": "22_level3_gate_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\parser_roundtrip_webcode2m.csv": {
+      "sha256": "133b12cfc48f36b58c778b61be548ffe02e93ef70b913d81b605e3336961dbe2",
+      "snapshot": "23_parser_roundtrip_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\stress_samples_webcode2m.csv": {
+      "sha256": "49203c8caeef9ae077f6ffb5a2e84dffcd4d1a7bcf234f228ad98e09e25c3696",
+      "snapshot": "24_stress_samples_webcode2m.csv"
+    },
+    "C:\\Users\\Mahin\\Thesis\\render_validated_starter_kit\\starter_kit\\reports\\csv\\token_census_webcode2m.csv": {
+      "sha256": "fd134f26e79732067c3742093e75b38f3d24626ce77429f9aec1e69b6b49a5e6",
+      "snapshot": "25_token_census_webcode2m.csv"
+    }
+  },
+  "script_sha256": "d6d5b9b09eb9d5ecee2a2f0cb5d30cf1f93b43dd52a63e0ac3bee15837be357d",
+  "arguments": {
+    "source": "webcode2m",
+    "root": null,
+    "manifest": null,
+    "final_report": null,
+    "original_manifest": null,
+    "selection_report": null,
+    "report_dir": null,
+    "out": null,
+    "csv_only": false,
+    "tokenizer": "Qwen/Qwen2.5-VL-3B-Instruct",
+    "revision": null,
+    "local_files_only": false,
+    "bootstrap": 2000,
+    "seed": 42,
+    "cluster_column": null,
+    "budgets": [
+      2048,
+      4096,
+      8192,
+      16384,
+      32768
+    ],
+    "max_pixels": 1003520,
+    "compare_tokenizers": []
+  }
+}

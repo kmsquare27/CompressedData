@@ -1,0 +1,14 @@
+ Inductive Bias Transfer
+This is more speculative but potentially impactful.
+
+Hypothesis: Training on compressed HTML forces the model to learn "rendering-aware" representations — it must predict the visual output from a shorter input, which may induce better visual understanding.
+
+Experiment:
+
+Pre-train a vision-language model on (screenshot, compressed HTML)
+
+Fine-tune on downstream tasks (UI classification, element detection, layout understanding)
+
+Compare against pre-training on (screenshot, original HTML)
+
+The compression acts as a task-relevant regularizer — the model learns to ignore visual-irrelevant tokens.

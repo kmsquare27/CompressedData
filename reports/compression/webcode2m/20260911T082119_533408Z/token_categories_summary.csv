@@ -1,0 +1,11 @@
+category,tokens_original,tokens_final,tokens_saved,characters_original,characters_final
+unattributed,52,0,52,194,0
+markup,66000,49846,16154,163153,120627
+attributes,82184,62433,19751,298803,223044
+inline_css,12345,8379,3966,38179,26152
+css_blocks,151821,78836,72985,463170,247668
+scripts,0,0,0,0,0
+comments,0,0,0,0,0
+text,61393,58844,2549,237569,228273
+whitespace,7316,5728,1588,47805,41831
+special_tokens,0,0,0,0,0

@@ -1,0 +1,8 @@
+page_id,part,name,diff_px,bbox
+we00016,l2_edit,remove:110,90,"<span data-mut-id=""110"" id=""more-16221""></span> ..."
+we00091,l1_op,comments,0,None
+we00091,l1_op,scripts,0,None
+we00091,l1_op,attributes,0,None
+we00091,l1_op,meta+link,0,None
+we00091,l1_op,css_minify,0,None
+we00092,l2_edit,remove:30,51,"<span class=""author vcard"" data-mut-id=""30""></span> ..."
