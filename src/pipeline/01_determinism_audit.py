@@ -30,10 +30,14 @@ from src.render.harness import RenderHarness  # noqa: E402
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", choices=["webcode2m"], default="webcode2m")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="only audit the first N pages in the manifest")
     args = ap.parse_args()
 
     manifest = ROOT / "data" / "splits" / f"pilot_{args.source}_manifest.csv"
     df = pd.read_csv(manifest)
+    if args.limit is not None:
+        df = df.head(args.limit)
     out_dir = ROOT / "outputs" / "audit" / args.source
     rep_dir = ROOT / "reports" / "csv"
     rep_dir.mkdir(parents=True, exist_ok=True)
