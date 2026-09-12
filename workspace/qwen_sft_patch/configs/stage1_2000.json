@@ -1,5 +1,5 @@
 {
-  "experiment": "scale10000_training_only",
+  "experiment": "stage1_2000",
   "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
   "epochs": 2,
   "seed": 42,
