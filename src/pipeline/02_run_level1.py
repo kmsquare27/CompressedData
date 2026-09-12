@@ -16,6 +16,7 @@ reports/csv/level1_stages_<source>.csv for the paper's per-stage table.
 Usage:
     python src/pipeline/02_run_level1.py --source webcode2m
     python src/pipeline/02_run_level1.py --source webcode2m --no-html-pass
+    python src/pipeline/02_run_level1.py --source webcode2m --validated-only
 """
 from __future__ import annotations
 
@@ -92,6 +93,9 @@ def main() -> None:
                     default=True, help="skip L1b (HTML-syntax pass)")
     ap.add_argument("--report-only", action="store_true",
                     help="skip rendering; re-print the summary from the existing gate CSVs")
+    ap.add_argument("--validated-only", action="store_true",
+                    help="only process pages marked identical in the step-01 "
+                         "determinism audit (reports/csv/determinism_audit_<source>.csv)")
     args = ap.parse_args()
 
     rep = ROOT / "reports" / "csv"
@@ -107,6 +111,21 @@ def main() -> None:
 
     manifest = ROOT / "data" / "splits" / f"pilot_{args.source}_manifest.csv"
     df = pd.read_csv(manifest)
+
+    if args.validated_only:
+        audit_csv = rep / f"determinism_audit_{args.source}.csv"
+        if not audit_csv.exists():
+            raise SystemExit(f"[02] --validated-only needs {audit_csv.name}; run "
+                             f"01_determinism_audit.py --source {args.source} first")
+        audit = pd.read_csv(audit_csv)
+        passed = set(audit.loc[audit["identical"].astype(str).str.strip().str.lower() == "true",
+                               "page_id"].astype(str))
+        before = len(df)
+        df = df[df["page_id"].astype(str).isin(passed)]
+        print(f"[02] --validated-only: {len(df)}/{before} pages passed the determinism "
+              f"audit ({audit_csv.name}); {before - len(df)} excluded")
+        if not len(df):
+            raise SystemExit("[02] no pages left after --validated-only filter")
 
     dirs = {s: ROOT / "outputs" / f"level1{s[-1]}" / args.source for s in ("l1a", "l1b")}
     final_dir = ROOT / "outputs" / "level1" / args.source
