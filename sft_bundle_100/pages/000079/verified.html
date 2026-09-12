@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html><head><title>multiwingspan</title></head><body><h1 id="sitename">MultiWingSpan</h1><ul><li><a>Home</a></li><li><a>Programming</a></li><li><a>Computer Science</a></li><li><a>Twisting Puzzles</a></li><li><a>Arduino</a></li><li><a>BBC micro:bit</a></li><li><a>Raspberry Pi Pico</a></li></ul><div id="sidebar"><h1>BBC Microbit</h1><p style="margin:10px"><button class="n">Collapse All</button><button class="n">Expand All</button></p><div id="acc"><button class="accordion blk">+ Block Editor - The Basics</button><button class="accordion blk">+ Block Editor - Components</button><button class="accordion blk">+ Kodu - micro:bit Worlds</button><button class="accordion blk">+ JavaScript Blocks</button><button class="accordion blk">+ JavaScript Blocks - Exercises</button><button class="accordion blk">+ Blocks - Bit:Bot</button><button class="accordion blk">+ Blocks - Bit:Commander</button><button class="accordion upy">+ MicroPython - Starting Off</button><button class="accordion upy">+ MicroPython - Examples</button><button class="accordion upy">+ MicroPython - Components</button><button class="accordion upy">+ MicroPython - Breakout Boards</button><button class="accordion upy">+ MicroPython - Exercises</button><button class="accordion upy">+ MicroPython - Pi Accessories</button><button class="accordion upy">+ MicroPython - Bit:Bot</button><button class="accordion upy">+ MicroPython - Bit:Commander</button><button class="accordion upy">+ MicroPython - Bit Kit Micro:car</button><button class="accordion upy">+ MicroPython - Projects</button><button class="accordion upy">+ MicroPython - Visual Basic</button><button class="accordion oth">+ Other - Odds &amp; Ends</button></div><br/><p><a><img height="31" src="images/valid-html401.png" width="88"/></a>  <a><img src="images/vcss.gif"/></a></p><br/><p><img src="images/witten1.jpg"/></p></div><h1>BBC micro:bit<br/> Bitkit - Buzzer &amp; Neopixels</h1><h2>Introduction</h2><p>There is nothing particularly special about the code needed to use the buzzer or Neopixels. The buzzer is connected to pin 0 and the Neopixels are on pin 1. Knowing that, you can reuse code from other projects to get the effects that you want.</p><p class="mid"><img src="images/micro/bk4.png"/></p><h2>Buzzer</h2><p>The following code is enough to show that the buzzer works.</p><pre class="prettyprint lang-py">from microbit import *
+import music
+music.play(music.POWER_UP)
+</pre><h2>Neopixels</h2><p>Here is some basic code to cycle through some colours with the four Neopixels.</p><pre class="prettyprint lang-py">from microbit import *
+import neopixel
+np = neopixel.NeoPixel(pin1, 4)
+# light all neopixels with given colour
+def light_all(col):
+    for p in range(0, len(np)):
+        np[p] = col
+    np.show()
+red = (255,0,0)
+green = (0,255,0)
+blue = (0,0,255)
+yellow = (255,64,0)
+off = (0,0,0)
+cols = [red,green,blue,yellow,off]
+while True:
+    for c in cols:
+        light_all(c)
+        sleep(1000)
+        light_all(off)
+        sleep(1000)
+</pre><p></p><div id="footer">Pages designed and coded by MHA since 2003 | Valid <a>HTML 4.01</a>(Strict) | <a>CSS</a></div><style>pre{background:#f8f4f1;width:95%;margin:10px auto}.accordion{color:#000;text-align:left;background-color:#fff;border:none;border-bottom:1px solid silver;outline:none;width:100%;margin:0;padding-top:4px;padding-bottom:4px;font-family:Verdana,Arial;font-size:14px;font-weight:700}#acc{border:1px solid silver;border-bottom:none}.upy{background-color:#eef}.blk{background-color:#fee}.oth{background-color:#efe}#sidebar button.n{background-color:#fff;border:1px solid #000;width:48%}</style></body></html>

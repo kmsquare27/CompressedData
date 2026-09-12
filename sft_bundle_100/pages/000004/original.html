@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+
+<html><head></head><body class="doc-template-default single single-doc postid-39190"><section class="doc-home pt-0"><div class="doc-sidebar" id="doc-sidebar-1"><ul class="collapsible list-unstyled pt-0"><li class="active"><div class="collapsible-header doc-logo"><div class="pr-3"><a><img src="https://dai323vbo0kfx.cloudfront.net/wp-content/themes/wpdm5/images/svg/download-manager-logo-v5.svg" style="width: 32px"/></a><a class="btn btn-primary-outline" style="line-height: 29px;padding: 0 10px;height: 32px;">Docs Home</a></div></div><ul class="collapsible-body list-unstyled pt-6"><li><a class="collapsible-header pr-2">Getting Started</a></li><li><a class="collapsible-header pr-2">Installation</a></li><li><a class="collapsible-header pr-2">Admin Panel</a></li><li><a class="collapsible-header pr-2">Add New Package</a></li><li><a class="collapsible-header pr-2">Templates</a></li><li><a class="collapsible-header pr-2">Settings</a></li><li><a class="collapsible-header pr-2">Subscribers</a></li><li><a class="collapsible-header pr-2">Bulk Import</a></li><li><a class="collapsible-header pr-2">Download Statistics</a></li><li><a class="collapsible-header pr-2">Short-codes</a></li><li><a class="collapsible-header pr-2">Action Reference</a></li><li><a class="collapsible-header pr-2 current">Filter Reference</a></li><li><a class="collapsible-header pr-2">Function Reference</a></li><li><a class="collapsible-header pr-2">Updating download manager to the latest version</a></li><li><a class="collapsible-header pr-2">How to Protect Download Manager Files Directory in Nginx</a></li></ul></li></ul></div><div class="container-wrapper" id="doc-container-wrapper"><div class="doc-header"><div class="container"><div class="row mb-0"><div class="col-lg-12"><div class="sidebar-open"><i class="ion ion-md-list"></i> </div><div class="vertical-text">Main Menu <i class="ion ion-md-arrow-round-forward"></i></div><div class="sidebar-open right"><i class="ion ion-md-list"></i></div><div class="vertical-text right">Sub Menu <i class="ion ion-md-arrow-round-forward"></i></div><form id="doc-search"><input/><div class="form-group input-field mb-0"><input class="form-control validate" id="exampleFormControlInput1"/></div></form></div></div></div></div><div class="container"><div class="row gutters mb-0"><div class="col-lg-12"><div class="doc-contents"><div class="title-wrap pt-5 doc-item-header mw-100"><small><div class="breadcrumb"><span><span><a>Home</a></span> / <span><a>Docs</a></span> / <span><a>Download Manager Pro</a></span> / <span><a>Filter Reference</a></span> / <span class="breadcrumb_last">wpdm_dashboard_menu_actions</span></span></div> </small><h2 class="section-title mw-100">wpdm_dashboard_menu_actions</h2></div><div class="doc-item-detail"><h2>Description</h2><hr/><p>Use this filter to add action for user dashboard without adding menu in left sidebar. For example, you may add a menu in content section manually and want to skip from left sidebar, then you can use this filter.</p><h2>Parameters</h2><hr/><p>One parameter is passed to this hook.</p><h2>Usage</h2><hr/><p>To add new tabs Under Package Settings section.</p><pre>&lt;?php add_filter('wpdm_dashboard_menu_actions','my_custom_dashboard_actions',10,1);  ?&gt;</pre><h2>Examples</h2><hr/><pre>&lt;?php
+add_filter('wpdm_dashboard_menu_actions','my_custom_dashboard_actions',10,1);
+// $menu_items is an array containing current menu items
+function my_custom_dashboard_menus($dashboard_actions){ 
+//Adding new action using callback function
+$dashboard_actions['new-menu-id'] = array('callback' =&gt; 'CallbackFunction');
+//Adding new action using short-code
+$dashboard_actions['new-menu-id'] = array('shortcode' =&gt; '[short_code_here]');
+return $dashboard_actions;
+}
+?&gt;
+</pre></div><div class="row-divider mb-5 pt-5"><div class="alert alert-info"><i class="ion ion-md-time"></i> Last updated on Feb 21, 2017</div></div><div class="alert alert-info"><h3 style="margin:0;">Need More Clarification?</h3><p>For any technical issue, if you are already using pro version please post in <a><strong>pro forum</strong></a> and free version users please post in <a><strong>free forum</strong></a>. Otherwise, if you have any pre-sale or order related query please contact live chat support team. For technical support.</p></div><div class="alert alert-success"><div class="media"><div class="media-body"><h3 style="margin:0;">Need Customization?</h3>
+If you need additional customization on WordPress Download Manager or any type of custom support on WordPress you may contact our customization service. 
+</div><div class="pull-right" style="padding: 15px 0 0 25px"><a class="btn btn-success btn-lg">Ask for customization</a></div></div></div></div></div></div></div></div><div class="doc-sidebar right" id="doc-sidebar-2"><ul class="collapsible list-unstyled pt-0"><li><div class="collapsible-header doc-logo"><i class="ion ion-md-funnel"></i>Filter Reference<i class="ion ion-md-arrow-round-forward sidebar-close"></i></div><ul class="collapsible-body list-unstyled"><li><a class="collapsible-header">wpdm_button_image</a></li><li><a class="collapsible-header">wpdm_download_link</a></li><li><a class="collapsible-header">wpdm_download_lock</a></li><li><a class="collapsible-header">wpdm_render_custom_form_fields</a></li><li><a class="collapsible-header">wpdm_frontend - Add/Remove Author Dashboard Menus</a></li><li><a class="collapsible-header">wpdm_export_custom_form_fields</a></li><li><a class="collapsible-header">wpdm_data_init</a></li><li><a class="collapsible-header">wpdm_embed_category_query_params</a></li><li><a class="collapsible-header">wdm_before_fetch_template</a></li><li><a class="collapsible-header">wpdm_check_lock</a></li><li><a class="collapsible-header">wpdm_before_download</a></li><li><a class="collapsible-header">wpdm_audio_playlist</a></li><li><a class="collapsible-header">wdm_pre_render_link</a></li><li><a class="collapsible-header">wpdm_meta_box</a></li><li><a class="collapsible-header">wpdm_package_settings_tabs</a></li><li><a class="collapsible-header">wpdm_download_speed</a></li><li><a class="collapsible-header current">wpdm_dashboard_menu_actions</a></li><li><a class="collapsible-header">add_wpdm_settings_tab</a></li><li><a class="collapsible-header">wpdm_after_prepare_package_data</a></li><li><a class="collapsible-header">wpdm_after_fetch_template</a></li><li><a class="collapsible-header">wpdm_download_availability_message</a></li><li><a class="collapsible-header">wpdm_download_expired_message</a></li><li><a class="collapsible-header">wpdm_download_link_expiration_limit</a></li><li><a class="collapsible-header">wpdm_single_file_download_link</a></li><li><a class="collapsible-header">wpdm_email_lock_heading</a></li><li><a class="collapsible-header">wpdm_user_dashboard_menu</a></li><li><a class="collapsible-header">single_file_download_link_label - Filters the single file download link label of the package before print it.</a></li><li><a class="collapsible-header">wpdm_email_template_##email_template_id## - Customize Email Template</a></li><li><a class="collapsible-header">wpdm_email_params_##email_template_id## - Introduce new template tag for the email template</a></li><li><a class="collapsible-header">wpdm_package_files - Manipulate WordPress Download Manager Package file list</a></li><li><a class="collapsible-header">wpdm_template_path</a></li><li><a class="collapsible-header">wpdm_download_filename</a></li> </ul></li></ul></div></section><div id="fb-root"></div><div class="w3eden"><div id="wppm-notices"><div class="wppm-notice"><div class="wppm-notice-body"><button class="btn btn-exit-notice">Close</button><span></span></div><a class="wppm-notice-footer btn-notice-action">{{ notice.buttonLabel }}</a></div></div></div><style>.w3eden .wppm-notice .btn {
+    border-radius: 500px;
+    padding: 8px 24px;
+    margin-top: 12px
+    }
+.w3eden .wppm-notice {
+    position: fixed;
+    z-index: 999999999;
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 0 32px rgba(0, 0, 0, 0.1);
+    font-size: 13px;
+    font-family: monospace;
+    transition: all ease-in-out 400ms;
+    line-height: 1.2
+    }
+.w3eden .wppm-notice .btn {
+    font-size: 12px;
+    padding: 4px 18px !important
+    }
+.w3eden .wppm-notice .btn-exit-notice {
+    display: block;
+    opacity: 0;
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    text-transform: uppercase;
+    padding: 4px 8px !important;
+    margin: 0 !important;
+    font-size: 9px !important;
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    transition: all ease-in-out 400ms;
+    border: 0;
+    border-radius: 500px
+    }</style></body></html>

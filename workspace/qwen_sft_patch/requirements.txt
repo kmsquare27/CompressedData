@@ -1,0 +1,15 @@
+# Python 3.11 or 3.12; keep the same environment across arms. PyTorch/CUDA pair installed first by 00_runpod_setup.sh.
+torch==2.8.0
+torchvision==0.23.0
+transformers==4.57.1
+tokenizers==0.22.1
+peft==0.17.1
+accelerate==1.10.1
+huggingface-hub==0.35.3
+safetensors==0.6.2
+Pillow==11.3.0
+numpy==2.2.6
+matplotlib==3.10.6
+minify-html==0.16.4
+psutil==7.1.0
+nvidia-ml-py==13.580.82
