@@ -31,7 +31,20 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--runs", nargs="+", required=True, help="One or more run roots or arm session directories")
     p.add_argument("--out", required=True)
+    p.add_argument(
+        "--arms", nargs="+", choices=ARMS,
+        default=["original", "verified"],
+        help="Comparison arms; defaults to original verified."
+    )
     a = p.parse_args()
+    if (
+        len(a.arms) < 2
+        or len(set(a.arms)) != len(a.arms)
+        or "original" not in a.arms
+    ):
+        p.error("Choose original and at least one comparison arm, without duplicates")
+    arms = [arm for arm in ARMS if arm in a.arms]
+    comparison_arms = [arm for arm in arms if arm != "original"]
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=False)
     import numpy as np
@@ -101,12 +114,12 @@ def main():
     write_csv(out / "compute_summary.csv", table)
     savings = []
     for group, rows in groups.items():
-        by_arm = {arm:[r for r in rows if r["arm"] == arm] for arm in ARMS}
+        by_arm = {arm:[r for r in rows if r["arm"] == arm] for arm in arms}
         if any(len(v) != 1 for v in by_arm.values()):
-            diagnostics.append({"group": group, "issues": ["Paired saving requires exactly one original, naive and verified run per matched group; report repetitions separately"]})
+            diagnostics.append({"group": group, "issues": [f"Paired saving requires exactly one eligible run for each selected arm ({', '.join(arms)}) per matched group; report repetitions separately"]})
             continue
         orig = by_arm["original"][0]
-        for arm in ["naive", "verified"]:
+        for arm in comparison_arms:
             r = by_arm[arm][0]
             for metric in ["sequence_tokens", "target_tokens", "job_wall_seconds", "training_loop_excluding_checkpoint_seconds", "sum_update_wall_seconds", "training_peak_allocated_bytes", "training_peak_reserved_bytes"]:
                 baseline, value = orig[metric], r[metric]
@@ -118,7 +131,16 @@ def main():
                 ["sequence_tokens", "job_wall_seconds", "training_peak_allocated_bytes"],
                 ["Processed sequence tokens", "Training job wall time (min)", "Training peak allocated (GiB)"],
                 [1, 60, 2**30]):
-            ax.bar(ARMS, [by_arm[arm][0][key]/scale for arm in ARMS], color=["#64748b", "#d97706", "#087f8c"])
+            colors = {
+                "original": "#64748b",
+                "naive": "#d97706",
+                "verified": "#087f8c",
+            }
+            ax.bar(
+                arms,
+                [by_arm[arm][0][key] / scale for arm in arms],
+                color=[colors[arm] for arm in arms],
+            )
             ax.set_title(title)
             ax.tick_params(axis="x", rotation=15)
             ax.spines[["top", "right"]].set_visible(False)
@@ -128,7 +150,11 @@ def main():
         plt.close(fig)
     write_csv(out / "paired_savings.csv", savings)
     write_json(out / "report_issues.json", diagnostics)
-    (out / "METRIC_DEFINITIONS.md").write_text(METRICS, encoding="utf-8")
+    (out / "METRIC_DEFINITIONS.md").write_text(
+        METRICS + "\nSelected comparison arms: " + ", ".join(arms)
+        + ". Raw session rows may include unselected arms.\n",
+        encoding="utf-8",
+    )
     print(f"Reported {len(table)} sessions, {len(savings)} paired metric comparisons: {out}")
 
 if __name__ == "__main__":

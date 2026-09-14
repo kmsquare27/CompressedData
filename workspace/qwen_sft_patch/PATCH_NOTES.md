@@ -1,3 +1,5 @@
+> HISTORICAL GUIDE: its three-arm, pilot, path and sequence-limit commands are superseded for the current experiment. Read CURRENT_RUN.md before executing commands.
+
 # Minimal 7B bf16 LoRA patch — read this first
 
 This ZIP is an overlay for your EXISTING `qwen_sft_patch` folder, not a standalone project. Keep all original files. It changes only the files listed below and supplies the required configs and a new continuation test. Your uploaded exporter, preparer, checkpoint verifier and telemetry code are byte-for-byte unchanged.

@@ -1,3 +1,5 @@
+> HISTORICAL GUIDE: its three-arm, pilot, path and sequence-limit commands are superseded for the current experiment. Read CURRENT_RUN.md before executing commands.
+
 # Steps 17 and 18 — additive compute extensions
 
 ## Install

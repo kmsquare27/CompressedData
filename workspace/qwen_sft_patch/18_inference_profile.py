@@ -1,6 +1,6 @@
 """Generate held-out HTML and profile single-request GPU inference.
 
-Install in qwen_sft_patch/compute_tools; imports the existing parent sft_core.
+Keep beside sft_core.py in the qwen_sft_patch project root.
 Reads a Step 12 HELD-OUT bundle directly (no target-length filtering).
 Only image and fixed training prompt are passed to the model. One adapter/run
 per process; run each arm with identical arguments and a fresh output folder.
@@ -15,7 +15,8 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_ROOT))
 from sft_core import (ARMS, append_jsonl, conversation_text, digest, encode_image_text,
                       file_sha, load_processor, package_versions,
                       portable_path, preprocessing_contract, read_json, read_jsonl,
@@ -144,9 +145,22 @@ def summarize(rows):
 
 
 def compare_profiles(paths, output):
+    if len(paths) not in {2, 3}:
+        raise ValueError("Supply original plus verified and/or naive profiles")
     profiles = [read_json(Path(x)/"profile.json") for x in paths]
-    if len(profiles)!=3 or {s["arm"] for s in profiles}!=set(ARMS):
-        raise ValueError("Supply exactly one profile directory for each arm")
+    supplied_arms = [profile.get("arm") for profile in profiles]
+    if (
+        len(set(supplied_arms)) != len(supplied_arms)
+        or "original" not in supplied_arms
+        or not set(supplied_arms) <= set(ARMS)
+    ):
+        raise ValueError(
+            "Supply one original profile and one per selected comparison arm; "
+            "unknown or duplicate arms are not allowed"
+        )
+    comparison_arms = [
+        arm for arm in ARMS if arm != "original" and arm in supplied_arms
+    ]
     if any(not s.get("eligible_for_complete_comparison") for s in profiles):
         raise ValueError("All inference profiles must complete")
     if len({s["comparison_key"] for s in profiles})!=1:
@@ -164,7 +178,7 @@ def compare_profiles(paths, output):
     reference = by_arm["original"]
     paired = []
     metrics = ["request_seconds","generation_seconds","ttft_generate_seconds","generated_tokens","peak_allocated_bytes"]
-    for arm in ["naive","verified"]:
+    for arm in comparison_arms:
         candidate = by_arm[arm]
         if set(candidate)!=set(reference):
             raise ValueError("Page/repeat cohorts differ")
@@ -180,7 +194,7 @@ def compare_profiles(paths, output):
     out.mkdir(parents=True,exist_ok=False)
     write_csv(out/"paired_inference.csv",paired)
     totals = []
-    for arm in ["naive","verified"]:
+    for arm in comparison_arms:
         for metric in metrics:
             b = sum(r[metric] for r in reference.values())
             v = sum(r[metric] for r in by_arm[arm].values())
@@ -190,6 +204,7 @@ def compare_profiles(paths, output):
                           saving_pct=100*(b-v)/b if b else None))
     write_csv(out/"inference_savings.csv",totals)
     write_json(out/"comparison.json",dict(profiles=paths,comparison_key=profiles[0]["comparison_key"],
+        arms=["original"] + comparison_arms,
         quality_evaluated=False,note="Truncated and low-quality generations remain included; join reconstruction quality before claiming efficiency. Repeats are not training seeds."))
     print(f"Compared profiles: {out}")
 
@@ -199,7 +214,8 @@ def main():
     for key in ["run", "bundle", "model-lock"]:
         p.add_argument("--"+key)
     p.add_argument("--out",required=True)
-    p.add_argument("--compare",nargs=3,metavar="PROFILE_DIR")
+    p.add_argument("--compare", nargs="+", metavar="PROFILE_DIR",
+                   help="Two or three profiles: original plus verified and/or naive")
     p.add_argument("--limit", type=int, default=0, help="0 = all held-out pages")
     p.add_argument("--order-seed", type=int, default=42)
     p.add_argument("--repeats", type=int, default=1, help="Timing repeats, not independent training seeds")
@@ -249,7 +265,7 @@ def main():
                       gpu_name=torch.cuda.get_device_name(0), gpu_uuid=str(getattr(torch.cuda.get_device_properties(0),"uuid","unknown")),
                       cuda_version=torch.version.cuda, arguments=vars(a),
                       code_hashes={"18_inference_profile.py":file_sha(__file__),
-                                   "sft_core.py":file_sha(Path(__file__).resolve().parent.parent/"sft_core.py")},
+                                   "sft_core.py":file_sha(PROJECT_ROOT / "sft_core.py")},
                       leakage_check="ID disjointness including ancestor IDs; does not detect renamed or near-duplicate pages")
     write_json(out/"profile.json", provenance)
     completed_rows = []

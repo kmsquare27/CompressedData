@@ -1,3 +1,5 @@
+> HISTORICAL GUIDE: its three-arm, pilot, path and sequence-limit commands are superseded for the current experiment. Read CURRENT_RUN.md before executing commands.
+
 # Validation record and remaining RunPod checks
 
 This package was authored against your uploaded pipeline files and accepted-decision markdown. No real finalized dataset, model weights or CUDA GPU were available in the authoring environment.

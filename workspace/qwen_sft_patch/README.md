@@ -1,3 +1,5 @@
+> HISTORICAL GUIDE: its three-arm, pilot, path and sequence-limit commands are superseded for the current experiment. Read CURRENT_RUN.md before executing commands.
+
 > Updated for the accepted 7B bf16 LoRA recipe. Read `PATCH_NOTES.md` first for exact PC/SSH replacement steps. Do not follow an older 3B guide. Unchanged defaults: accumulation 8, dropout 0, weight decay .01, warmup .10, SDPA, image budget 256–1280, sequence cap 8192. These were intentionally not retuned. Freeze any justified policy changes before main training.
 
 # From finalized pages to a 100-page Qwen SFT pilot
