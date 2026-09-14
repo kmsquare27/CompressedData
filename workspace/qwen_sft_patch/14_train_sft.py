@@ -7,6 +7,7 @@ import math
 import os
 import platform
 import random
+import shutil
 import subprocess
 import time
 import traceback
@@ -35,9 +36,15 @@ def main():
     ap.add_argument("--resume", help="Own trusted checkpoint directory; loads Python optimizer/RNG state")
     ap.add_argument("--init-from-run", help="Completed same-arm run; load its adapter with a NEW optimizer/schedule for disjoint new pages")
     ap.add_argument("--smoke", action="store_true", help="Train two diagnostic updates on worst-size examples; excluded from research comparisons")
+    ap.add_argument("--keep-all-checkpoints", action="store_true", help="Retain every checkpoint instead of the configured keep_last_checkpoints")
+    ap.add_argument("--allow-low-disk", action="store_true", help="Proceed despite a failed free-space preflight")
+    ap.add_argument("--remaining-arms", type=int, default=1,
+                    help="Launcher free-space budget for remaining sequential arms")
     args = ap.parse_args()
-    if args.init_from_run and (args.resume or args.smoke):
-        ap.error("Continuation cannot combine with resume or smoke")
+    if args.remaining_arms < 1:
+        ap.error("--remaining-arms must be positive")
+    if args.init_from_run and args.resume:
+        ap.error("Continuation cannot combine with resume")
     if args.smoke and args.resume:
         ap.error("Smoke tests cannot resume")
     out = Path(args.out).resolve()
@@ -91,7 +98,9 @@ def main():
                        "cuda_runtime": torch.version.cuda, "python": platform.python_version(),
                        "platform": platform.platform(), "packages": package_versions(),
                        "attention": "sdpa", "tf32": False, "microbatch_size": 1,
-                       "packing": False, "gradient_checkpointing": "non-reentrant"}
+                       "packing": False, "gradient_checkpointing": "non-reentrant",
+                       "pytorch_cuda_alloc_conf": os.environ.get("PYTORCH_CUDA_ALLOC_CONF"),
+                       "checkpoint_retention": "all" if args.keep_all_checkpoints else c["keep_last_checkpoints"]}
         try:
             environment["nvidia_driver"] = subprocess.check_output(
                 ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"], text=True).strip()
@@ -100,7 +109,8 @@ def main():
         parent = validate_parent_run(args.init_from_run, args.arm, c, lock, prepared["page_ids"]) if args.init_from_run else None
         if args.resume:
             # Preserve the stage's ancestry when resuming an interrupted continuation.
-            resume_recipe = read_json(Path(args.resume) / "stage_recipe.json")
+            cp = Path(args.resume).resolve()
+            prior, resume_recipe = verify_training_checkpoint(cp)
             parent = resume_recipe.get("parent_run")
         recipe = {"training_method": "bf16_lora", "parent_run": parent,
                   "parent_comparison_key": parent["comparison_key"] if parent else None,
@@ -138,14 +148,10 @@ def main():
         base.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
         targets = allowed_lora_targets([name for name, module in base.named_modules()])
         if args.resume:
-            cp = Path(args.resume).resolve()
-            prior = read_json(cp / "checkpoint.json")
             if prior["recipe_hash"] != recipe_hash:
-                raise ValueError("Resume recipe differs (data/model/config/code/environment packages); use original recipe")
-            if file_sha(cp / "training_state.pt") != prior["state_sha256"]:
-                raise ValueError("Checkpoint state hash mismatch")
-            if file_sha(cp / "adapter_model.safetensors") != prior["adapter_sha256"]:
-                raise ValueError("Checkpoint adapter hash mismatch")
+                raise ValueError(
+                    "Resume recipe differs: use the original data/model/config/code/packages"
+                )
             model = PeftModel.from_pretrained(base, str(cp), is_trainable=True)
         elif parent:
             model = PeftModel.from_pretrained(base, parent["adapter_path"], is_trainable=True)
@@ -158,6 +164,12 @@ def main():
             raise ValueError("Unexpected trainable parameters; only language-decoder LoRA adapters are allowed")
         if any(p.device.type != "cuda" for p in model.parameters()):
             raise ValueError("CPU/offloaded parameters found; this recipe requires all model parameters on one GPU")
+        trainable_specs = [
+            {"name": name, "shape": list(parameter.shape), "dtype": str(parameter.dtype)}
+            for name, parameter in trainable
+        ]
+        if args.resume and prior["trainable_parameters"] != trainable_specs:
+            raise ValueError("Checkpoint trainable parameter structure/order differs")
         write_json(out / "trainable_parameters.json", {"target_modules": targets,
                    "names": [n for n,p in trainable], "trainable_numel": sum(p.numel() for n,p in trainable),
                    "all_numel_reported_by_torch": sum(p.numel() for p in model.parameters())})
@@ -181,6 +193,41 @@ def main():
                        for epoch in range(c["epochs"])
                        for order in [epoch_order(len(rows), c["seed"], epoch)]
                        for start in range(0, len(rows), accumulation)]
+        trainable_numel = sum(p.numel() for n,p in trainable)
+        keep = total_updates if args.keep_all_checkpoints else c["keep_last_checkpoints"]
+        plan = checkpoint_disk_plan(trainable_numel, total_updates,
+                                    math.ceil(len(rows)/accumulation), c["epochs"],
+                                    c["save_every_updates"], keep,
+                                    adapter_bytes=sum(
+                                        parameter.numel() * parameter.element_size()
+                                        for _, parameter in trainable
+                                    ),
+                                    start_step=prior["progress"]["global_step"]
+                                    if args.resume else 0)
+        if args.smoke:
+            # Smoke runs deliberately write no checkpoints.
+            smoke_payload = plan["adapter_bytes"] * 2
+            smoke_margin = max(2**30, math.ceil(smoke_payload * 0.10))
+            plan.update({
+                "planned_checkpoints": 0,
+                "retained_checkpoints": 0,
+                "safety_margin_bytes": smoke_margin,
+                "peak_run_bytes": smoke_payload + smoke_margin,
+            })
+        free_bytes = shutil.disk_usage(out).free
+        required = plan["peak_run_bytes"] * args.remaining_arms
+        plan["remaining_arms_budget"] = args.remaining_arms
+        plan.update({"free_bytes_at_start": free_bytes, "required_bytes": required,
+                     "keep_last_checkpoints": keep, "smoke": args.smoke})
+        summary["disk_preflight"] = plan
+        write_json(out / "summary.json", summary | {"status": "preflight"})
+        print(f"Checkpoint plan: {plan['planned_checkpoints']} writes, retain {plan['retained_checkpoints']}, "
+              f"{plan['bytes_per_checkpoint']/2**30:.2f} GiB each; need ~{required/2**30:.1f} GiB, "
+              f"free {free_bytes/2**30:.1f} GiB", flush=True)
+        if required > free_bytes and not args.allow_low_disk:
+            raise ValueError(
+                f"Insufficient free space for this run: need ~{required/2**30:.1f} GiB, free {free_bytes/2**30:.1f} GiB. "
+                f"Lower keep_last_checkpoints, raise save_every_updates, free space, or pass --allow-low-disk.")
         optimizer = torch.optim.AdamW([p for n,p in trainable], lr=c["learning_rate"],
                                      weight_decay=c["weight_decay"], foreach=False)
         scheduler = get_cosine_schedule_with_warmup(optimizer, math.ceil(total_updates*c["warmup_ratio"]), total_updates)
@@ -189,6 +236,10 @@ def main():
         if args.resume:
             # Only load checkpoints produced by this patch and owned by you: optimizer/RNG state uses pickle.
             saved = torch.load(cp / "training_state.pt", map_location="cpu", weights_only=False)
+            if saved.get("trainable_parameters") != trainable_specs:
+                raise ValueError("Optimizer parameter ordering differs from the checkpoint")
+            if digest(saved.get("progress")) != digest(prior["progress"]):
+                raise ValueError("Checkpoint progress metadata/state mismatch")
             optimizer.load_state_dict(saved["optimizer"])
             scheduler.load_state_dict(saved["scheduler"])
             state = saved["progress"]
@@ -196,8 +247,25 @@ def main():
             np.random.set_state(saved["numpy_rng"])
             torch.set_rng_state(saved["torch_rng"])
             torch.cuda.set_rng_state_all(saved["cuda_rng"])
-        if state["next_window"] >= len(windows):
-            raise ValueError("Checkpoint already completed all updates; its adapter is the completed training state")
+        if (
+            type(state["next_window"]) is not int
+            or state["global_step"] != state["next_window"]
+            or not 0 <= state["next_window"] <= len(windows)
+        ):
+            raise ValueError("Checkpoint progress does not fit this stage")
+        finalization_only = bool(
+            args.resume and state["next_window"] == len(windows)
+        )
+        summary.update({
+            "finalization_only": finalization_only,
+            "progress": state,
+            "session_examples": 0,
+            "session_tokens": {key: 0 for key in TOKEN_KEYS},
+            "training_peak_allocated_bytes": None,
+            "training_peak_reserved_bytes": None,
+        })
+        if finalization_only:
+            print("All updates are complete; recovering final adapter export only.", flush=True)
         checkpoint_seconds = 0.0
         peak_allocated = peak_reserved = 0
         session_tokens = {k: 0 for k in TOKEN_KEYS}
@@ -216,14 +284,30 @@ def main():
             temp.mkdir(parents=True)
             model.save_pretrained(temp, safe_serialization=True)
             write_json(temp / "stage_recipe.json", recipe)
-            torch.save({"progress": state, "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
+            torch.save({"progress": state, "trainable_parameters": trainable_specs,
+                        "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
                         "python_rng": random.getstate(), "numpy_rng": np.random.get_state(),
                         "torch_rng": torch.get_rng_state(), "cuda_rng": torch.cuda.get_rng_state_all()}, temp / "training_state.pt")
-            write_json(temp / "checkpoint.json", {"recipe_hash": recipe_hash,
-                       "state_sha256": file_sha(temp / "training_state.pt"),
-                       "adapter_sha256": file_sha(temp / "adapter_model.safetensors"), "progress": state})
+            artifact_hashes = {
+                str(path.relative_to(temp)): file_sha(path)
+                for path in temp.rglob("*") if path.is_file()
+            }
+            write_json(temp / "checkpoint.json", {
+                "schema": 2,
+                "recipe_hash": recipe_hash,
+                "files_sha256": artifact_hashes,
+                "state_sha256": artifact_hashes["training_state.pt"],
+                "adapter_sha256": artifact_hashes["adapter_model.safetensors"],
+                "trainable_parameters": trainable_specs,
+                "progress": state,
+            })
             temp.rename(folder)
             write_json(out / "latest_checkpoint.json", {"path": str(folder)})
+            removed, retained = prune_checkpoints(out, keep, recipe_hash)
+            summary["checkpoints_retained"] = retained
+            summary["checkpoints_pruned"] = summary.get("checkpoints_pruned", 0)+len(removed)
+            if removed:
+                print(f"Pruned {len(removed)} superseded checkpoint(s); retaining {len(retained)}", flush=True)
             checkpoint_seconds += time.perf_counter()-before
             monitor.phase = "train"
 
@@ -301,7 +385,11 @@ def main():
                             "progress": state, "training_peak_allocated_bytes": peak_allocated,
                             "training_peak_reserved_bytes": peak_reserved})
             write_json(out / "summary.json", summary | {"status": "training"})
-            print(f"{args.arm} update {state['global_step']}/{total_updates} loss={record['loss']:.4f} wall={wall:.2f}s peak={allocated/2**30:.2f}GiB", flush=True)
+            done = summary["completed_updates_this_session"]
+            elapsed = time.perf_counter()-loop_start
+            remaining = (len(windows)-window_index-1)*elapsed/done if done else 0
+            print(f"{args.arm} update {state['global_step']}/{total_updates} loss={record['loss']:.4f} "
+                  f"wall={wall:.2f}s peak={allocated/2**30:.2f}GiB eta={remaining/3600:.2f}h", flush=True)
             at_epoch_end = offset+len(indices) >= len(rows)
             if not args.smoke and (state["global_step"] % c["save_every_updates"] == 0 or at_epoch_end):
                 checkpoint()

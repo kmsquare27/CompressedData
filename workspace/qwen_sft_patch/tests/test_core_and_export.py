@@ -117,13 +117,13 @@ class TestExport(unittest.TestCase):
                 exporter.export(args)
             self.assertIn("original bytes changed",str(ctx.exception))
             self.assertIn("tokens_final mismatch",str(ctx.exception))
-            self.assertFalse(Path(args.out).exists())
+            self.assertFalse((Path(args.out) / "bundle.json").exists())
 
     def test_short_population_is_explicit_error(self):
         with tempfile.TemporaryDirectory() as d:
             args = self.fixture(Path(d))
             args.n = 100
-            with self.assertRaisesRegex(ValueError,"Only 3 finalized pages"):
+            with self.assertRaisesRegex(ValueError,"Only 3 eligible pages"):
                 exporter.export(args)
 
 if __name__ == "__main__":

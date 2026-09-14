@@ -127,7 +127,162 @@ def load_config(path):
         raise ValueError("Invalid optimizer/LoRA numeric parameter")
     if not isinstance(c["warmup_metric_updates"], int) or c["warmup_metric_updates"] < 0:
         raise ValueError("warmup_metric_updates must be a nonnegative integer")
+    # Optional, defaulted so existing configuration files stay loadable. Retention is a
+    # storage policy, not part of the learning recipe, so stages may differ.
+    c.setdefault("keep_last_checkpoints", 3)
+    if not isinstance(c["keep_last_checkpoints"], int) or c["keep_last_checkpoints"] < 1:
+        raise ValueError("keep_last_checkpoints must be a positive integer")
     return c
+
+
+def checkpoint_dirs(run, recipe_hash=None):
+    """Recognized completed checkpoints for this recipe, in numeric step order."""
+    run = Path(run)
+    folder = run / "checkpoints"
+    if not folder.is_dir():
+        return []
+    if folder.is_symlink():
+        raise ValueError("Checkpoint directory must not be a symlink")
+    if recipe_hash is None:
+        recipe_hash = read_json(run / "recipe.json")["recipe_hash"]
+    found = []
+    for directory in folder.iterdir():
+        match = re.fullmatch(r"step_(\d+)", directory.name)
+        if not match or directory.is_symlink() or not directory.is_dir():
+            continue
+        marker = directory / "checkpoint.json"
+        if marker.is_symlink() or not marker.is_file():
+            continue
+        try:
+            metadata = read_json(marker)
+            progress = metadata["progress"]
+            hashes = metadata["files_sha256"]
+            step = int(match.group(1))
+            if (
+                metadata.get("schema") != 2
+                or metadata.get("recipe_hash") != recipe_hash
+                or progress["global_step"] != step
+                or progress["next_window"] != step
+                or not CHECKPOINT_REQUIRED_FILES <= hashes.keys()
+                or not all(
+                    portable_path(directory, name).is_file()
+                    for name in CHECKPOINT_REQUIRED_FILES
+                )
+            ):
+                continue
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+        found.append((step, directory))
+    return [directory for _, directory in sorted(found, key=lambda item: item[0])]
+
+
+def prune_checkpoints(run, keep, recipe_hash=None):
+    """Prune only recognized checkpoints in this session; leave other paths alone."""
+    import shutil as _shutil
+    if type(keep) is not int or keep < 1:
+        raise ValueError("keep must be a positive integer")
+    found = checkpoint_dirs(run, recipe_hash)
+    removed = []
+    for directory in found[:-keep]:
+        _shutil.rmtree(directory)
+        removed.append(str(directory))
+    return removed, [str(directory) for directory in found[-keep:]]
+
+
+def checkpoint_schedule(total_updates, updates_per_epoch, epochs, save_every_updates):
+    """Optimizer updates at which 14_train_sft writes a checkpoint."""
+    epoch_ends = {min(updates_per_epoch * (e + 1), total_updates) for e in range(epochs)}
+    return sorted({k for k in range(1, total_updates + 1)
+                   if k % save_every_updates == 0 or k in epoch_ends})
+
+
+def checkpoint_disk_plan(
+    trainable_numel, total_updates, updates_per_epoch, epochs,
+    save_every_updates, keep, adapter_bytes=None, start_step=0
+):
+    """Estimate additional storage, including a checkpoint written before pruning.
+
+    AdamW's two moment tensors are estimated at the parameter tensor byte size.
+    Metadata/log/processor overhead is covered by an explicit safety margin.
+    This is a free-space estimate, not a filesystem reservation.
+    """
+    if type(keep) is not int or keep < 1:
+        raise ValueError("keep must be a positive integer")
+    if not 0 <= start_step <= total_updates:
+        raise ValueError("Invalid checkpoint starting step")
+    if adapter_bytes is None:
+        adapter_bytes = trainable_numel * 4
+    if adapter_bytes <= 0:
+        raise ValueError("Adapter size must be positive")
+    schedule = [
+        step for step in checkpoint_schedule(
+            total_updates, updates_per_epoch, epochs, save_every_updates
+        )
+        if step > start_step
+    ]
+    per_checkpoint = adapter_bytes * 3
+    retained = min(len(schedule), keep)
+    in_flight = int(len(schedule) > retained)
+    payload_peak = (
+        per_checkpoint * (retained + in_flight)
+        + adapter_bytes * 2
+    )
+    margin = max(2**30, math.ceil(payload_peak * 0.10))
+    return {
+        "trainable_numel": trainable_numel,
+        "adapter_bytes": adapter_bytes,
+        "bytes_per_checkpoint": per_checkpoint,
+        "planned_checkpoints": len(schedule),
+        "retained_checkpoints": retained,
+        "start_step": start_step,
+        "safety_margin_bytes": margin,
+        "peak_run_bytes": payload_peak + margin,
+        "estimate_basis": "parameter bytes plus two same-size AdamW moments",
+    }
+
+CHECKPOINT_REQUIRED_FILES = {
+    "adapter_model.safetensors",
+    "adapter_config.json",
+    "stage_recipe.json",
+    "training_state.pt",
+}
+
+
+def verify_training_checkpoint(folder, expected_recipe_hash=None):
+    """Verify checkpoint files and recipe without unpickling optimizer state."""
+    folder = Path(folder).resolve()
+    metadata = read_json(folder / "checkpoint.json")
+    if metadata.get("schema") != 2:
+        raise ValueError(
+            "Checkpoint predates the complete integrity manifest. "
+            "Use its preserved original code to resume it."
+        )
+    hashes = metadata.get("files_sha256")
+    if not isinstance(hashes, dict) or not CHECKPOINT_REQUIRED_FILES <= hashes.keys():
+        raise ValueError("Incomplete checkpoint artifact manifest")
+    for name, expected in hashes.items():
+        path = portable_path(folder, name)
+        if not path.is_file() or file_sha(path) != expected:
+            raise ValueError(f"Checkpoint artifact missing/changed: {name}")
+    recipe = read_json(folder / "stage_recipe.json")
+    if digest(recipe) != metadata.get("recipe_hash"):
+        raise ValueError("Checkpoint stage recipe integrity mismatch")
+    if (
+        expected_recipe_hash is not None
+        and metadata["recipe_hash"] != expected_recipe_hash
+    ):
+        raise ValueError("Checkpoint belongs to a different recipe")
+    progress = metadata.get("progress", {})
+    step = progress.get("global_step")
+    window = progress.get("next_window")
+    if type(step) is not int or step < 1 or window != step:
+        raise ValueError("Invalid checkpoint progress")
+    match = re.fullmatch(r"step_(\d+)", folder.name)
+    if match and int(match.group(1)) != step:
+        raise ValueError("Checkpoint directory/progress mismatch")
+    if not isinstance(metadata.get("trainable_parameters"), list):
+        raise ValueError("Checkpoint parameter ordering is missing")
+    return metadata, recipe
 
 def preprocessing_contract(c):
     return {k: c[k] for k in ["model_id", "max_seq_length", "min_image_tokens", "max_image_tokens"]} | {"prompt": PROMPT, "image_processor_use_fast": False, "tokenizer_use_fast": True, "padding": False, "truncation": False}
@@ -306,6 +461,10 @@ def validate_parent_run(run, arm, config, lock, page_ids):
     saved_recipe = read_json(folder / "training_recipe.json")
     if digest(saved_recipe) != recipe["recipe_hash"]:
         raise ValueError("Parent recipe integrity mismatch")
+    outer_recipe = {k: v for k, v in recipe.items()
+                    if k not in {"recipe_hash", "environment"}}
+    if digest(outer_recipe) != digest(saved_recipe):
+        raise ValueError("Parent recipe metadata changed")
     if summary["recipe_hash"] != recipe["recipe_hash"]:
         raise ValueError("Parent summary/recipe mismatch")
     # This key excludes arm-specific targets but keeps comparable predecessor conditions.
