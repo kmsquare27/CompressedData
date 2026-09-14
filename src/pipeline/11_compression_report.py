@@ -114,9 +114,14 @@ def gini(x):
     return float((2.0 * np.arange(1, len(v) + 1) - len(v) - 1).dot(v) / (len(v) * v.sum()))
 
 
-def image_tokens(width, height, factor=28, merge=2, min_pixels=56*56,
+def image_tokens(width, height, factor=28, min_pixels=56*56,
                  max_pixels=1280*28*28):
     """Qwen2-VL / 2.5-VL smart_resize, then patch count after the 2x2 merge.
+
+    `factor` (28) is patch_size(14) x merge_size(2), so rounding to a
+    multiple of `factor` already lands on the POST-MERGE grid: the token
+    count is exactly (h//factor)*(w//factor), with no further division by
+    merge**2 (that would double-apply the merge and undercount 4x).
 
     ESTIMATE, not the processor's output: it reproduces the documented
     resize rule but not your collator, chat template or prompt. It exists so
@@ -135,7 +140,7 @@ def image_tokens(width, height, factor=28, merge=2, min_pixels=56*56,
         beta = math.sqrt(min_pixels/(height*width))
         h = math.ceil(height*beta/factor)*factor
         w = math.ceil(width*beta/factor)*factor
-    return int((h//factor)*(w//factor)//(merge*merge))
+    return int((h//factor)*(w//factor))
 
 
 def finite_only(obj):
@@ -329,6 +334,22 @@ def load_tokenizer(args, env):
 
 
 
+def reporting_environment():
+    """Package versions used to GENERATE this report, distinct from
+    step08_environment (the pipeline's rendering environment when
+    compression was run). Without this, a numbers-changed-between-runs
+    question has no way to rule out a reporting-side dependency drift."""
+    import platform
+    import importlib.metadata as metadata
+    packages = {}
+    for name in ("numpy", "pandas", "matplotlib", "pillow", "transformers", "tokenizers"):
+        try:
+            packages[name] = metadata.version(name)
+        except metadata.PackageNotFoundError:
+            pass
+    return {"python": sys.version, "platform": platform.platform(), "packages": packages}
+
+
 def top_decile_share(saved):
     v = np.sort(np.clip(np.asarray(saved, dtype=float), 0, None))[::-1]
     v = v[np.isfinite(v)]
@@ -352,8 +373,8 @@ def sequence_accounting(pages, root, max_pixels, notes):
         return {}
     ok = pages[pages.validated & np.isfinite(pages.tokens_orig)
                & np.isfinite(pages.tokens_effective)]
-    counts, missing = [], 0
-    for row in ok.to_dict("records"):
+    counts, matched_idx, missing = [], [], 0
+    for idx, row in ok.iterrows():
         path = resolve_path(row.get("png_path"), root)
         if path is None or not path.is_file():
             missing += 1
@@ -361,6 +382,7 @@ def sequence_accounting(pages, root, max_pixels, notes):
         try:
             with Image.open(path) as im:
                 counts.append(image_tokens(im.width, im.height, max_pixels=max_pixels))
+            matched_idx.append(idx)
         except Exception:
             missing += 1
     if not counts:
@@ -369,14 +391,19 @@ def sequence_accounting(pages, root, max_pixels, notes):
     if missing:
         notes.append(f"{missing} validated pages had no readable render; the "
                      f"image-token estimate covers the remaining {len(counts)}.")
+    # HTML totals are summed over exactly the pages whose screenshot was
+    # measured, not scaled from the full validated set -- missing renders
+    # need not be distributed the same way across page sizes.
+    matched = ok.loc[matched_idx]
     img = float(np.sum(counts))
-    scale = len(counts)/len(ok)
-    html_o = float(ok.tokens_orig.sum())*scale
-    html_f = float(ok.tokens_effective.sum())*scale
+    html_o = float(matched.tokens_orig.sum())
+    html_f = float(matched.tokens_effective.sum())
     seq_o, seq_f = img + html_o, img + html_f
     notes.append("Sequence accounting is an ESTIMATE from render dimensions and "
                  "the documented resize rule; it excludes prompt/chat/padding "
-                 "tokens. Report the HTML figure and the sequence figure "
+                 "tokens. HTML totals are summed over exactly the pages whose "
+                 "screenshot was measured, not scaled from the full validated "
+                 "set. Report the HTML figure and the sequence figure "
                  "together, never the HTML figure alone as a compute claim.")
     return {"pages_measured": len(counts), "max_pixels": max_pixels,
             "image_tokens_total": img,
@@ -671,6 +698,14 @@ def main():
     args = ap.parse_args()
     if args.bootstrap < 0 or any(v <= 0 for v in args.budgets):
         ap.error("Bootstrap must be nonnegative and budgets must be positive")
+    try:
+        import matplotlib  # noqa: F401
+    except ImportError as e:
+        raise ValueError("matplotlib is required (see module docstring "
+                         "Dependencies) to generate figures; install it "
+                         "before running -- checked up front so a full "
+                         "recount is never wasted on a missing dependency "
+                         "discovered only at the end.") from e
     roots = [Path.cwd(), *Path.cwd().parents, *Path(__file__).resolve().parents]
     root = args.root.resolve() if args.root else next((p for p in roots if (p/"data"/"splits").is_dir() and (p/"reports").is_dir()), None)
     if root is None:
@@ -858,7 +893,8 @@ def main():
                        (known_ok.tokens_orig - known_ok.tokens_effective).to_numpy())},
                "sequence_accounting": sequence,
                "tokenizer_sensitivity": sensitivity.to_dict("records") if len(sensitivity) else [],
-               "step08_environment": env, "notes": notes}
+               "step08_environment": env, "reporting_environment": reporting_environment(),
+               "notes": notes}
     snap = out/"input_snapshot"
     snap.mkdir()
     provenance = {}

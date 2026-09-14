@@ -1,0 +1,4 @@
+tokenizer,is_reported,tokens_original,tokens_final,corpus_reduction_pct
+Qwen/Qwen2.5-VL-3B-Instruct,TRUE,381111,264066,30.711524988782795
+gpt2,FALSE,471588,303762,35.587419527214436
+bigcode/starcoder2-3b,FALSE,432419,309607,28.401157210945865

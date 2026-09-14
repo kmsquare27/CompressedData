@@ -1,0 +1,69 @@
+page_id,kind,el_id,prescreen_ok,prescreen_first,kept,blacklisted
+we00016,remove,3,True,,False,False
+we00016,remove,23,True,,False,False
+we00016,remove,24,True,,True,False
+we00016,remove,91,True,,True,False
+we00016,remove,110,True,,True,False
+we00016,remove,116,True,,True,False
+we00016,remove,118,True,,True,False
+we00016,remove,120,True,,True,False
+we00016,remove,129,True,,True,False
+we00016,remove,130,True,,True,False
+we00016,remove,131,True,,True,False
+we00016,remove,135,False,"m134: 1112,1353.140625,40,23.796875|accent-color:auto -> 1132,1353.140625,20,23.796875|accent-color:auto",False,False
+we00016,remove,138,False,"m134: 1112,1353.140625,40,23.796875|accent-color:auto -> 1132,1353.140625,20,23.796875|accent-color:auto",False,False
+we00016,remove,146,True,,True,False
+we00016,collapse,51,True,,True,False
+we00016,collapse,58,True,,True,False
+we00016,collapse,65,True,,True,False
+we00016,collapse,72,True,,True,False
+we00016,collapse,79,True,,True,False
+we00016,collapse,86,True,,True,False
+we00016,collapse,50,True,,True,False
+we00016,collapse,57,True,,True,False
+we00016,collapse,64,True,,True,False
+we00016,collapse,71,True,,True,False
+we00016,collapse,78,True,,True,False
+we00016,collapse,85,True,,True,False
+we00016,collapse,46,True,,True,False
+we00016,collapse,48,True,,True,False
+we00016,collapse,55,True,,True,False
+we00016,collapse,62,True,,True,False
+we00016,collapse,69,True,,True,False
+we00016,collapse,76,True,,True,False
+we00016,collapse,83,True,,True,False
+we00016,collapse,100,True,,True,False
+we00016,collapse,98,True,,True,False
+we00016,collapse,93,True,,True,False
+we00016,collapse,97,True,,True,False
+we00016,collapse,5,True,,True,False
+we00016,collapse,4,True,,True,False
+we00016,collapse,90,True,,True,False
+we00016,collapse,2,True,,True,False
+we00016,collapse,33,True,,True,False
+we00016,collapse,1,False,"i0: 0,0,1280,1599.9375|accent-color:auto -> 0,0,1280,1664.734375|accent-color:auto",False,False
+we00016,collapse,32,True,,True,False
+we00091,remove,56,True,,True,False
+we00091,remove,66,True,,True,False
+we00091,remove,92,False,"i0: 0,0,1280,1459.46875|accent-color:auto -> 0,0,1280,1455.46875|accent-color:auto",False,False
+we00091,remove,97,True,,True,False
+we00091,collapse,67,True,,True,False
+we00091,collapse,70,True,,True,False
+we00091,collapse,3,True,,True,False
+we00091,collapse,27,True,,True,False
+we00091,collapse,116,True,,True,False
+we00091,collapse,1,True,,True,False
+we00092,remove,4,True,,True,False
+we00092,remove,17,True,,True,False
+we00092,remove,30,True,,True,False
+we00092,remove,66,True,,True,False
+we00092,remove,70,True,,True,False
+we00092,remove,99,True,,True,False
+we00092,collapse,71,True,,True,False
+we00092,collapse,27,True,,True,False
+we00092,collapse,75,True,,True,False
+we00092,collapse,89,True,,True,False
+we00092,collapse,18,False,m19: display:none -> display:inline,False,False
+we00092,collapse,25,False,"i0: 0,0,1280,2097.453125|accent-color:auto -> 0,0,1280,2096.453125|accent-color:auto",False,False
+we00092,collapse,24,True,,True,False
+we00092,collapse,21,True,,True,False
